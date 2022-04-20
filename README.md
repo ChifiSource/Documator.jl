@@ -1,0 +1,2 @@
+# Documator.jl
+Automate documentation.
