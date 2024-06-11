@@ -32,6 +32,46 @@ function on_start(ext::ClientDocLoader, data::Dict{Symbol, Any}, routes::Vector{
     push!(data, :doc => ext)
 end
 
+function build_docstrings(mod::Module, docm::DocModule)
+    docstrings = Vector{Servable}()
+    hover_docs = [begin
+        docname = string(sname)
+        # make doc-string
+        docstring = "no documentation found for $docname :("
+        try
+            f = getfield(this_docmod, sname)
+            docstring = string(this_docmod.eval(Meta.parse("@doc($docname)")))
+
+        catch
+
+        end
+        docstr_tmd = tmd("$docname-md", string(docstring))
+        push!(docstrings, docstr_tmd)
+        inline_comp = a(docname, text = docname, class = "inline-doc")
+        on(session, docname) do cm::ComponentModifier
+            docstr_window = div("$docname-window", children = [docstr_tmd])
+            cursor = cm["doccursor"]
+            xpos, ypos = cursor["x"], cursor["y"]
+            style!(docstr_window, "position" => "absolute", "top" => ypos, "left" => xpos, 
+            "border-radius" => 4px, "border" => "2px solid #333333", "background-color" => "white")
+            append!(cm, "main", docstr_tmd)
+        end
+        on(docname, inline_comp, "click")
+        inline_comp::Component{:a}
+    end for sname in names(mod)]
+    docstrings, hoverdocs
+end
+
+function load_docs!(mod::Module, docloader::ClientDocLoader)
+    for system in docloader.docsystems
+        @info "preloading $(system.name) content ..." 
+        this_docmod::Module = getfield(mod, Symbol(name))
+        ToolipsServables.interpolate!(page, "julia" => julia_interpolator, "img" => img_interpolator, 
+        "html" => html_interpolator)
+        ToolipsServables.interpolate!(page, docstrings ...)
+    end
+end
+
 function generate_menu(mods::Vector{DocSystem})
     menuholder::Component{:div} = div("mainmenu", align = "center", class = "mmenuholder", open = "none",
     children = [begin
@@ -42,6 +82,9 @@ function generate_menu(mods::Vector{DocSystem})
         label_a = a("label$modname", text = modname, class = "mainmenulabel")
         style!(mdiv, "background-color" => menu_mod.ecodata["color"], "overflow" => "hidden", 
         "padding-top" => 2px, "height" => 13percent, "transition" => 500ms)
+        on(mdiv, "click") do cl::ClientModifier
+
+        end
         style!(label_a, "color" => menu_mod.ecodata["txtcolor"])
         push!(mdiv, preview_img, label_a)
         mdiv::Component{:div}
@@ -77,8 +120,8 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
                     doclabel = div("doclabel", text = docn)
                     style!(doclabel, "padding" => 3px, "font-size" => 13pt, "color" => "white")
                     push!(menitem, doclabel)
-                    on(c, menitem, "click") do cm::ComponentModifier
-                        alert!(cm, "this will set the left menu elements, and open a new tab.")
+                    on(menitem, "click") do cl::ClientModifier
+                        open_tab!(cl, )
                     end
                     menitem
             end for docmod in selected_system.modules]
@@ -90,6 +133,10 @@ end
 
 function switch_tabs!(c::AbstractConnection, cm::ComponentModifier, t::String)
     
+end
+
+function open_tab!(cm::AbstractComponentModifier, tab::Component{<:Any})
+
 end
 
 function make_stylesheet()
@@ -118,28 +165,30 @@ function make_stylesheet()
     sheet::Component{:stylesheet}
 end
 
+
+function make_tab(c::AbstractConnection, tab::Component{<:Any}, active::Bool = true)
+    labelname = join(split(tab.name, "-")[2:3], " | ")
+    tablabel = a("labeltab$(tab.name)", text = "$labelname")
+    closetab = a("closetab$(tab.name)", text = "<", class = "tabxinactive")
+    taba = div("tab$(tab.name)", class = "tabinactive")
+    style!(taba, "display" => "inline-block")
+    push!(taba, tablabel, closetab)
+    on(c, taba, "click") do cm::ComponentModifier
+        switch_tabs!(c, cm, tab.name)
+    end
+    if active
+        closetab[:class] = "tabxactive"
+        taba[:class] = "tabactive"
+    end
+end
+
 function generate_tabbar(c::AbstractConnection, client::DocClient)
     n::Int16 = Int16(length(client.tabs))
-    tabholder::Component{:div} = div("tabs", align = "left")
-    [begin
-        labelname = join(split(tab.name, "-")[2:3], " | ")
-        tablabel = a("labeltab$(tab.name)", text = "$labelname")
-        closetab = a("closetab$(tab.name)", text = "<", class = "tabxinactive")
-        taba = div("tab$(tab.name)", class = "tabinactive")
-        style!(taba, "display" => "inline-block")
-        push!(taba, tablabel, closetab)
-        on(c, taba, "click") do cm::ComponentModifier
-            switch_tabs!(c, cm, tab.name)
-        end
-        if e == 1
-            closetab[:class] = "tabxactive"
-            taba[:class] = "tabactive"
-        end
-        if e == n
-            style!(taba, "border-top-right-radius" => 10px)
-        end
-        push!(tabholder, taba)
-    end for (e, tab) in enumerate(client.tabs)]
+    tabholder::Component{:div} = div("tabs", align = "left",
+    children = [make_tab(c, tab, false) for (e, tab) in enumerate(client.tabs)])
+    lasttab = tabholder[:children][length(children)]
+
+    tabholder[:children][1][:class] = "tabactive"
     style!(tabholder, "width" => 50percent)
     return(tabholder, client.tabs[1].name)
 end
@@ -148,7 +197,7 @@ function build_main(c::AbstractConnection, client::DocClient)
     tabbar, docname = generate_tabbar(c, client)
     main_window = div("main_window", align = "left")
     push!(main_window, get_docpage(c, docname))
-    style!(main_window, "background-color" => "white", "height" => 100percent, "padding" => 30px)
+    style!(main_window, "background-color" => "white", "padding" => 30px)
     main_container::Component{:div} = div("main-container", children = [tabbar, main_window])
     style!(main_container, "height" => 80percent, "width" => 75percent, "background-color" => "lightgray", "padding" => 0px, "display" => "flex", "flex-direction" => "column", 
     "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border" => "2px solid #211f1f", "border-left" => "none", "border-top" => "none")
@@ -163,7 +212,7 @@ end
 function build_leftmenu(c::AbstractConnection, mod::DocModule)
     items = build_leftmenu_elements(c, mod)
     left_menu::Component{:div} = div("left_menu", children = items)
-    style!(left_menu, "width" => 20percent, "height" => 80percent, "background-color" => "darkgray", "border-bottom-left-radius" => 5px)
+    style!(left_menu, "width" => 20percent, "background-color" => "darkgray", "border-bottom-left-radius" => 5px)
     left_menu::Component{:div}
 end
 
@@ -244,7 +293,7 @@ function home(c::Toolips.AbstractConnection)
     style!(mainbody, "background-color" => "#333333")
     app_window::Component{:div} = div("app-window")
     style!(app_window, "margin-left" => .5percent, "margin-top" => 5percent, "background-color" => "#333333", "display" => "flex", 
-    "transition" => 1s)
+    "transition" => 1s, "display" => "flex", "flex-direction" => "row")
     main_container::Component{:div}, mod::String = build_main(c, client)
     ecopage = split(mod, "-")
     loaded_page = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])]
@@ -267,7 +316,8 @@ yadda yadda, documentation.
 function start_from_project(path::String = pwd(), mod::Module = Main; ip::Toolips.IP4 = "127.0.0.1":8000)
     docloader.dir = path
     docloader.docsystems = read_doc_config(path * "/config.toml", mod)
-    start!(ChifiDocs, ip)
+    load_docs!(docloader)
+    start!(Documator, ip)
 end
 
 main = route(home, "/")

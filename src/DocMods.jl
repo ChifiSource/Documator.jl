@@ -85,29 +85,6 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
         return(nothing)::Nothing
     end
     pages = Vector{Component{<:Any}}()
-    this_docmod::Module = getfield(mod, Symbol(name))
-    docstrings = [begin
-        docname = string(sname)
-        inline_comp = a(docname, text = docname, class = "inline-doc")
-        on(session, docname) do cm::ComponentModifier
-            docstring = "no documentation found for $docname :("
-            try
-                f = getfield(this_docmod, sname)
-                docstring = string(this_docmod.eval(Meta.parse("@doc($docname)")))
-            catch
-
-            end
-            docstr_tmd = tmd("$docname-md", string(docstring))
-            docstr_window = div("$docname-window", children = [docstr_tmd])
-            cursor = cm["doccursor"]
-            xpos, ypos = cursor["x"], cursor["y"]
-            style!(docstr_window, "position" => "absolute", "top" => ypos, "left" => xpos, 
-            "border-radius" => 4px, "border" => "2px solid #333333", "background-color" => "white")
-            append!(cm, "main", docstr_window)
-        end
-        on(docname, inline_comp, "click")
-        inline_comp
-    end for sname in names(this_docmod)]
     path::String = split(path, "/")[1] * "/modules/" * dct_data["path"]
     if "pages" in data_keys
         dpages = dct_data["pages"]
@@ -115,9 +92,6 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
             rawsrc::String = replace(read(path * "/" * dpages[n], String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
             newmd = tmd(string(dpages[n - 1]), rawsrc)
             newmd[:text] = replace(newmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">")
-            ToolipsServables.interpolate!(newmd, "julia" => julia_interpolator, "img" => img_interpolator, 
-            "html" => html_interpolator)
-            ToolipsServables.interpolate!(newmd, docstrings ...)
             newmd
         end for n in range(2, length(dpages), step = 2)]
     end
