@@ -2,6 +2,7 @@ module Documator
 using Toolips
 using TOML
 using Toolips.Components
+import Toolips.Components: AbstractComponentModifier
 import Toolips: on_start
 import Base: getindex
 using ToolipsSession
@@ -59,16 +60,22 @@ function build_docstrings(mod::Module, docm::DocModule)
         on(docname, inline_comp, "click")
         inline_comp::Component{:a}
     end for sname in names(mod)]
-    docstrings, hoverdocs
+    return(docstrings, hover_docs)
 end
 
 function load_docs!(mod::Module, docloader::ClientDocLoader)
     for system in docloader.docsystems
-        @info "preloading $(system.name) content ..." 
-        this_docmod::Module = getfield(mod, Symbol(name))
-        ToolipsServables.interpolate!(page, "julia" => julia_interpolator, "img" => img_interpolator, 
-        "html" => html_interpolator)
-        ToolipsServables.interpolate!(page, docstrings ...)
+        @info "preloading $(system.name) content ..."
+        for docmod in system.modules
+            @info "| $(docmod.name)"
+            this_docmod::Module = getfield(mod, Symbol(docmod.name))
+            docstrings, hoverdocs = build_docstrings(mod, docmod)
+            [begin
+                ToolipsServables.interpolate!(page, "julia" => julia_interpolator, "img" => img_interpolator, 
+                "html" => html_interpolator)
+                ToolipsServables.interpolate!(page, docstrings ...)
+            end for page in docmod.pages]
+        end
     end
 end
 
@@ -186,8 +193,7 @@ function generate_tabbar(c::AbstractConnection, client::DocClient)
     n::Int16 = Int16(length(client.tabs))
     tabholder::Component{:div} = div("tabs", align = "left",
     children = [make_tab(c, tab, false) for (e, tab) in enumerate(client.tabs)])
-    lasttab = tabholder[:children][length(children)]
-
+    lasttab = tabholder[:children][length(tabholder[:children])]
     tabholder[:children][1][:class] = "tabactive"
     style!(tabholder, "width" => 50percent)
     return(tabholder, client.tabs[1].name)
@@ -316,7 +322,7 @@ yadda yadda, documentation.
 function start_from_project(path::String = pwd(), mod::Module = Main; ip::Toolips.IP4 = "127.0.0.1":8000)
     docloader.dir = path
     docloader.docsystems = read_doc_config(path * "/config.toml", mod)
-    load_docs!(docloader)
+    load_docs!(mod, docloader)
     start!(Documator, ip)
 end
 
