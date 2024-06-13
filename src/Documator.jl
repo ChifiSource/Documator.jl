@@ -40,22 +40,19 @@ function build_docstrings(mod::Module, docm::DocModule)
         # make doc-string
         docstring = "no documentation found for $docname :("
         try
-            f = getfield(this_docmod, sname)
-            docstring = string(this_docmod.eval(Meta.parse("@doc($docname)")))
-
+            docstring = string(mod.eval(Meta.parse("@doc($docname)")))
         catch
-
         end
         docstr_tmd = tmd("$docname-md", string(docstring))
-        push!(docstrings, docstr_tmd)
         inline_comp = a(docname, text = docname, class = "inline-doc")
+        push!(docstrings, inline_comp)
         on(session, docname) do cm::ComponentModifier
             docstr_window = div("$docname-window", children = [docstr_tmd])
             cursor = cm["doccursor"]
-            xpos, ypos = cursor["x"], cursor["y"]
-            style!(docstr_window, "position" => "absolute", "top" => ypos, "left" => xpos, 
-            "border-radius" => 4px, "border" => "2px solid #333333", "background-color" => "white")
-            append!(cm, "main", docstr_tmd)
+            xpos, ypos, xscroll, yscroll = parse(Int64, cursor["x"]), parse(Int64, cursor["y"]), parse(Int64, cursor["scrollx"]), parse(Int64, cursor["scrolly"])
+            style!(docstr_window, "position" => "absolute", "top" => ypos + scrolly, "left" => xpos + scrollx, 
+            "border-radius" => 4px, "border" => "2px solid #333333", "background-color" => "white", "padding" => 15px)
+            append!(cm, "main", docstr_window)
         end
         on(docname, inline_comp, "click")
         inline_comp::Component{:a}
