@@ -159,7 +159,7 @@ function make_stylesheet()
     inldoc:"hover":["scale" => "1.07", "color" => "lightblue"]
     tab_x = ("font-size" => 14pt, "border-radius" => 3px, "padding" => 4px, "margin-left" => 4px)
     tab_x_active = Style("a.tabxactive", "color" => "white", "background-color" => "darkred", "font-family" => "storycan", tab_x ...)
-    tab_x_inactive = Style("a.tabinactive", "color" => "#333333", "background-color" => "lightgray", "font-family" => "storycan", "padding" => 9px, tab_x ...)
+    tab_x_inactive = Style("a.tabxinactive", "color" => "#333333", "background-color" => "lightgray", "font-family" => "storycan", "padding" => 9px, tab_x ...)
     left_menu_elements = Style("div.menuitem", "width" => 100percent, "padding" => 8px, "cursor" => "pointer")
     main_menus = Style("a.mainmenulabel", "font-size" => 18pt, "font-weight" => "bold", 
     "display" => "inline-block", "opacity" => 100percent, "transition" => 400ms)
@@ -187,15 +187,20 @@ function make_tab(c::AbstractConnection, tab::Component{<:Any}, active::Bool = t
         closetab[:class] = "tabxactive"
         taba[:class] = "tabactive"
     end
+    taba
 end
 
 function generate_tabbar(c::AbstractConnection, client::DocClient)
     n::Int16 = Int16(length(client.tabs))
     tabholder::Component{:div} = div("tabs", align = "left",
     children = [make_tab(c, tab, false) for (e, tab) in enumerate(client.tabs)])
-    lasttab = tabholder[:children][length(tabholder[:children])]
-    tabholder[:children][1][:class] = "tabactive"
-    style!(tabholder, "width" => 50percent)
+    if length(tabholder[:children]) > 0
+        lasttab = tabholder[:children][length(tabholder[:children])]
+        style!(lasttab, "border-top-right-radius" => 7px)
+        tabholder[:children][1][:class] = "tabactive"
+        tabholder[:children][1][:children][2][:class] = "tabxactive"
+    end
+    style!(tabholder, "width" => 50percent, "background" => "transparent")
     return(tabholder, client.tabs[1].name)
 end
 
