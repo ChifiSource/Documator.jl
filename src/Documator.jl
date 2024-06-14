@@ -264,7 +264,7 @@ function build_main(c::AbstractConnection, client::DocClient)
     push!(main_window, get_docpage(c, docname))
     style!(main_window, "background-color" => "white", "padding" => 30px, "border-right" => "2px soid #211f1f")
     main_container::Component{:div} = div("main-container", children = [tabbar, main_window])
-    style!(main_container, "height" => 80percent, "width" => 99percent, "background" => "transparent", "padding" => 0px, "display" => "flex", "flex-direction" => "column", 
+    style!(main_container, "height" => 80percent, "width" => 85percent, "background" => "transparent", "padding" => 0px, "display" => "flex", "flex-direction" => "column", 
     "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border-bottom" => "2px soid #211f1f")
     return(main_container::Component{:div}, docname)
 end
