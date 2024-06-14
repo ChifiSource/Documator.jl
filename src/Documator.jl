@@ -86,9 +86,6 @@ function generate_menu(mods::Vector{DocSystem})
         label_a = a("label$modname", text = modname, class = "mainmenulabel")
         style!(mdiv, "background-color" => menu_mod.ecodata["color"], "overflow" => "hidden", 
         "padding-top" => 2px, "transition" => 500ms)
-        on(mdiv, "click") do cl::ClientModifier
-
-        end
         style!(label_a, "color" => menu_mod.ecodata["txtcolor"])
         push!(mdiv, preview_img, label_a)
         mdiv::Component{:div}
@@ -105,15 +102,12 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
         on(c, child, "click") do cm::ComponentModifier
             opened::String = cm["mainmenu"]["open"]
             if opened == econame
-                style!(cm, econame, "height" => 13percent)
                 cm["mainmenu"] = "open" => "none"
                 remove!(cm, "expandmenu")
                 return
             elseif opened != "none"
-                style!(cm, opened, "height" => 13percent)
                 remove!(cm, "expandmenu")
             end
-            style!(cm, econame, "height" => 80percent)
             cm["mainmenu"] = "open" => econame
             selected_system = c[:doc].docsystems[child.name]
             submenu = [begin
@@ -125,8 +119,8 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
                     style!(doclabel, "padding" => 3px, "font-size" => 13pt, "color" => "white")
                     push!(menitem, doclabel)
                     on(c, menitem, "click") do cm::ComponentModifier
-                        alert!(cm, string(docn))
-                        #open_tab!(cm, c)
+                        open_tab!(cm, div(docn, children = docmod.pages))
+                        remove!(cm, "expandmenu")
                     end
                     menitem
             end for docmod in selected_system.modules]
@@ -141,7 +135,7 @@ function switch_tabs!(c::AbstractConnection, cm::ComponentModifier, t::String)
 end
 
 function open_tab!(cm::Components.Modifier, tab::Component{<:Any})
-
+    set_children!(cm, "main_window", [tab])
 end
 
 function make_stylesheet()
