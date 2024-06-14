@@ -47,9 +47,9 @@ function build_docstrings(mod::Module, docm::DocModule)
         inline_comp = a(docname, text = docname, class = "inline-doc")
         push!(docstrings, inline_comp)
         on(session, docname) do cm::ComponentModifier
-            docstr_window = div("$docname-window", children = [docstr_tmd])
+            docstr_window = div("$docname-window", children = [docstr_tmd], align = "left")
             cursor = cm["doccursor"]
-            xpos, ypos, xscroll, yscroll = parse(Int64, cursor["x"]), parse(Int64, cursor["y"]), parse(Int64, cursor["scrollx"]), parse(Int64, cursor["scrolly"])
+            xpos, ypos, scrollx, scrolly = parse(Int64, cursor["x"]), parse(Int64, cursor["y"]), parse(Int64, cursor["scrollx"]), parse(Int64, cursor["scrolly"])
             style!(docstr_window, "position" => "absolute", "top" => ypos + scrolly, "left" => xpos + scrollx, 
             "border-radius" => 4px, "border" => "2px solid #333333", "background-color" => "white", "padding" => 15px)
             append!(cm, "main", docstr_window)
@@ -85,7 +85,7 @@ function generate_menu(mods::Vector{DocSystem})
         style!(preview_img, "display" => "inline-block")
         label_a = a("label$modname", text = modname, class = "mainmenulabel")
         style!(mdiv, "background-color" => menu_mod.ecodata["color"], "overflow" => "hidden", 
-        "padding-top" => 2px, "height" => 13percent, "transition" => 500ms)
+        "padding-top" => 2px, "transition" => 500ms)
         on(mdiv, "click") do cl::ClientModifier
 
         end
@@ -124,8 +124,9 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
                     doclabel = div("doclabel", text = docn)
                     style!(doclabel, "padding" => 3px, "font-size" => 13pt, "color" => "white")
                     push!(menitem, doclabel)
-                    on(menitem, "click") do cl::ClientModifier
-                        open_tab!(cl, )
+                    on(c, menitem, "click") do cm::ComponentModifier
+                        alert!(cm, string(docn))
+                        #open_tab!(cm, c)
                     end
                     menitem
             end for docmod in selected_system.modules]
@@ -139,7 +140,7 @@ function switch_tabs!(c::AbstractConnection, cm::ComponentModifier, t::String)
     
 end
 
-function open_tab!(cm::AbstractComponentModifier, tab::Component{<:Any})
+function open_tab!(cm::Components.Modifier, tab::Component{<:Any})
 
 end
 
@@ -154,14 +155,14 @@ function make_stylesheet()
     inldoc = Style("a.inline-doc", "color" => "darkblue", "font-weight" => "bold", 
     "font-size" => 15pt, "cursor" => "pointer", "transition" => 400ms)
     inldoc:"hover":["scale" => "1.07", "color" => "lightblue"]
-    tab_x = ("font-size" => 14pt, "border-radius" => 3px, "padding" => 4px, "margin-left" => 4px)
+    tab_x = ("font-size" => 14pt, "border-radius" => 3px, "padding" => 4px, "margin-left" => 10px)
     tab_x_active = Style("a.tabxactive", "color" => "white", "background-color" => "darkred", "font-family" => "storycan", tab_x ...)
-    tab_x_inactive = Style("a.tabxinactive", "color" => "#333333", "background-color" => "lightgray", "font-family" => "storycan", "padding" => 9px, tab_x ...)
+    tab_x_inactive = Style("a.tabxinactive", "color" => "#333333", "background-color" => "lightgray", "font-family" => "storycan", "padding" => 9px,
+    tab_x ...)
     left_menu_elements = Style("div.menuitem", "width" => 100percent, "padding" => 8px, "cursor" => "pointer")
     main_menus = Style("a.mainmenulabel", "font-size" => 18pt, "font-weight" => "bold", 
     "display" => "inline-block", "opacity" => 100percent, "transition" => 400ms)
-    menu_holder = Style("div.mmenuholder", "width" => 8percent, "z-index" => 2, "transition" => 800ms, 
-    "overflow" => "hidden", "height" => 80percent)
+    menu_holder = Style("div.mmenuholder", "z-index" => 2, "transition" => 800ms,"overflow" => "hidden")
     menu_holder:"hover":["transform" => scale(1.1)]
     sheet = Component{:stylesheet}("styles")
     sheet[:children] = Vector{AbstractComponent}([tab_active, tab_inactive, tab_x_active, tab_x_inactive, 
@@ -171,7 +172,7 @@ end
 
 
 function make_tab(c::AbstractConnection, tab::Component{<:Any}, active::Bool = true)
-    labelname = join(split(tab.name, "-")[2:3], " | ")
+    labelname = replace(tab.name, "-" => " | ")
     tablabel = a("labeltab$(tab.name)", text = "$labelname")
     closetab = a("closetab$(tab.name)", text = "<", class = "tabxinactive")
     taba = div("tab$(tab.name)", class = "tabinactive")
@@ -207,20 +208,26 @@ function build_main(c::AbstractConnection, client::DocClient)
     push!(main_window, get_docpage(c, docname))
     style!(main_window, "background-color" => "white", "padding" => 30px)
     main_container::Component{:div} = div("main-container", children = [tabbar, main_window])
-    style!(main_container, "height" => 80percent, "width" => 75percent, "background-color" => "lightgray", "padding" => 0px, "display" => "flex", "flex-direction" => "column", 
+    style!(main_container, "height" => 80percent, "width" => 80percent, "background-color" => "lightgray", "padding" => 0px, "display" => "flex", "flex-direction" => "column", 
     "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border" => "2px solid #211f1f", "border-left" => "none", "border-top" => "none")
     return(main_container::Component{:div}, docname)
 end
 
 function get_docpage(c::AbstractConnection, name::String)
     ecopage::Vector{SubString} = split(name, "-")
+    if length(ecopage) == 2
+        return(div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].pages))
+    end
     c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])].pages[string(ecopage[2])]::Component{<:Any}
 end
 
 function build_leftmenu(c::AbstractConnection, mod::DocModule)
     items = build_leftmenu_elements(c, mod)
-    left_menu::Component{:div} = div("left_menu", children = items)
-    style!(left_menu, "width" => 20percent, "background-color" => "darkgray", "border-bottom-left-radius" => 5px)
+    main_menu = copy(c[:doc].pages["mainmenu"])
+    bind_menu!(c, main_menu)
+    left_menu::Component{:div} = div("left_menu", children = vcat(main_menu, items))
+    style!(left_menu, "width" => 20percent, "background-color" => "darkgray", "border-bottom-left-radius" => 5px, 
+    "border-top-left-radius" => 5px, "border-right" => "2px solid #333333")
     left_menu::Component{:div}
 end
 
@@ -290,7 +297,7 @@ function home(c::Toolips.AbstractConnection)
     if ~(ip in keys(client_keys))
         key::String = Toolips.gen_ref(4)
         push!(client_keys, ip => key)
-        push!(c[:doc].clients, DocClient(key, [div("chifi-welcome-ChifiDocs")]))
+        push!(c[:doc].clients, DocClient(key, [div("chifi-ChifiDocs")]))
     end
     key = client_keys[ip]
     client::DocClient = c[:doc].clients[key]
@@ -300,15 +307,13 @@ function home(c::Toolips.AbstractConnection)
     mainbody::Component{:body} = body("main", align = "center")
     style!(mainbody, "background-color" => "#333333")
     app_window::Component{:div} = div("app-window")
-    style!(app_window, "margin-left" => .5percent, "margin-top" => 5percent, "background-color" => "#333333", "display" => "flex", 
+    style!(app_window, "margin-left" => .5percent, "margin-top" => 2percent, "background-color" => "#333333", "display" => "flex", 
     "transition" => 1s, "display" => "flex", "flex-direction" => "row")
     main_container::Component{:div}, mod::String = build_main(c, client)
     ecopage = split(mod, "-")
-    loaded_page = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])]
+    loaded_page = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[length(ecopage)])]
     left_menu = build_leftmenu(c, loaded_page)
-    main_menu = copy(pages["mainmenu"])
-    bind_menu!(c, main_menu)
-    push!(app_window, main_menu, left_menu, main_container)
+    push!(app_window, left_menu, main_container)
     push!(mainbody, cursor("doccursor"), app_window)
     write!(c, mainbody)
 end
