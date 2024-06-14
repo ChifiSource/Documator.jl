@@ -90,7 +90,7 @@ function generate_menu(mods::Vector{DocSystem})
         style!(preview_img, "display" => "inline-block")
         label_a = a("label$modname", text = modname, class = "mainmenulabel")
         style!(mdiv, "background-color" => menu_mod.ecodata["color"], "overflow" => "hidden", 
-        "padding-top" => 2px, "transition" => 500ms)
+        "padding-top" => 2px, "transition" => 500ms, "cursor" => "pointer")
         style!(label_a, "color" => menu_mod.ecodata["txtcolor"])
         push!(mdiv, preview_img, label_a)
         mdiv::Component{:div}
@@ -173,27 +173,36 @@ end
 
 function make_stylesheet()
     bttons = Style("button", "font-family" => "storycan")
+    h1_sty = Style("h1", "color" => "#333333")
+    h2_sty = Style("h2", "color" => "#29232e")
+    h3_sty = Style("h3", "color" => "#46383c")
+    h4_sty = Style("h4", "color" => "darkblue")
+    cod_sty = Style("code", "background-color" => "#333333", "padding" => 3px, "border-radius" => 1px, "color" => "white", 
+    "font-size" => 10pt)
+    p_sty = Style("p", "color" => "#191922", "font-size" => 12pt)
     ico_font = Style("@font-face", "font-family" => "'storycan'", "src" => "url(/fonts/storycan-icons.ttf)")
-    tabs = ("padding" => 10px, "font-size" => 13pt, "font-weight" => "bold", 
+    tabs = ("padding" => 10px, "font-size" => 15pt, "font-weight" => "bold", 
     "color" => "#333333", "border-top" => "1px solid #333333", "border-right" => "1px solid #333333")
     tab_active = Style("div.tabactive",  "background-color" => "white", tabs ...)
     tab_inactive = Style("div.tabinactive", "background-color" => "lightgray", "cursor" => "pointer", 
     "border-bottom" => "1px solid #333333", tabs ...)
     inldoc = Style("a.inline-doc", "color" => "darkblue", "font-weight" => "bold", 
-    "font-size" => 15pt, "cursor" => "pointer", "transition" => 400ms)
+    "font-size" => 13pt, "cursor" => "pointer", "transition" => 400ms)
     inldoc:"hover":["scale" => "1.07", "color" => "lightblue"]
     tab_x = ("font-size" => 14pt, "border-radius" => 3px, "padding" => 4px, "margin-left" => 10px)
-    tab_x_active = Style("a.tabxactive", "color" => "white", "background-color" => "darkred", "font-family" => "storycan", tab_x ...)
-    tab_x_inactive = Style("a.tabxinactive", "color" => "#333333", "background-color" => "lightgray", "font-family" => "storycan", "padding" => 9px,
-    tab_x ...)
-    left_menu_elements = Style("div.menuitem", "width" => 100percent, "padding" => 8px, "cursor" => "pointer")
+    tab_x_active = Style("a.tabxactive", "color" => "white", "background-color" => "darkred", "font-family" => "storycan",
+    "cursor" => "pointer", tab_x ...)
+    tab_x_inactive = Style("a.tabxinactive", "color" => "#333333", "background-color" => "lightgray", "font-family" => "storycan",
+     "padding" => 9px, tab_x ...)
+    left_menu_elements = Style("div.menuitem", "padding" => 8px, "cursor" => "pointer")
     main_menus = Style("a.mainmenulabel", "font-size" => 18pt, "font-weight" => "bold", 
     "display" => "inline-block", "opacity" => 100percent, "transition" => 400ms)
     menu_holder = Style("div.mmenuholder", "z-index" => 2, "transition" => 800ms,"overflow" => "hidden")
     menu_holder:"hover":["transform" => scale(1.1)]
     sheet = Component{:stylesheet}("styles")
     sheet[:children] = Vector{AbstractComponent}([tab_active, tab_inactive, tab_x_active, tab_x_inactive, 
-    left_menu_elements, main_menus, menu_holder, ico_font, bttons, inldoc])
+    left_menu_elements, main_menus, menu_holder, ico_font, bttons, inldoc, h1_sty, h2_sty, h3_sty, h4_sty, p_sty, cod_sty])
+    compress!(sheet)
     sheet::Component{:stylesheet}
 end
 
@@ -202,10 +211,9 @@ function make_tab(c::AbstractConnection, tab::Component{<:Any}, active::Bool = t
     tabn = tab.name
     act_str = "active"
     tablabel = a("labeltab$tabn", text = replace(tabn, "-" => " | "))
-    style!(tablabel, "cursor" => "pointer")
     closetab = a("closetab$(tabn)", text = "<", class = "tabxinactive")
     taba = div("tab$(tabn)", class = "tabinactive")
-    style!(taba, "display" => "inline-block", "cursor" => "pointer")
+    style!(taba, "display" => "inline-block")
     push!(taba, tablabel, closetab)
     on(c, taba, "click") do cm::ComponentModifier
         switch_tabs!(c, cm, tabn)
@@ -254,10 +262,10 @@ function build_main(c::AbstractConnection, client::DocClient)
     tabbar, docname = generate_tabbar(c, client)
     main_window = div("main_window", align = "left")
     push!(main_window, get_docpage(c, docname))
-    style!(main_window, "background-color" => "white", "padding" => 30px)
+    style!(main_window, "background-color" => "white", "padding" => 30px, "border-right" => "2px soid #211f1f")
     main_container::Component{:div} = div("main-container", children = [tabbar, main_window])
-    style!(main_container, "height" => 80percent, "width" => 80percent, "background-color" => "lightgray", "padding" => 0px, "display" => "flex", "flex-direction" => "column", 
-    "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border" => "2px solid #211f1f", "border-left" => "none", "border-top" => "none")
+    style!(main_container, "height" => 80percent, "width" => 99percent, "background" => "transparent", "padding" => 0px, "display" => "flex", "flex-direction" => "column", 
+    "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border-bottom" => "2px soid #211f1f")
     return(main_container::Component{:div}, docname)
 end
 
@@ -276,7 +284,7 @@ function build_leftmenu(c::AbstractConnection, mod::DocModule)
     item_inner = div("leftmenu_items", children = items)
     left_menu::Component{:div} = div("left_menu")
     push!(left_menu, main_menu, item_inner)
-    style!(left_menu, "width" => 20percent, "background-color" => "darkgray", "border-bottom-left-radius" => 5px, 
+    style!(left_menu, "width" => 20percent, "background-color" => "white", "border-bottom-left-radius" => 5px, 
     "border-top-left-radius" => 5px, "border-right" => "2px solid #333333")
     left_menu::Component{:div}
 end
@@ -351,7 +359,8 @@ function home(c::Toolips.AbstractConnection)
     if ~(ip in keys(client_keys))
         key::String = Toolips.gen_ref(4)
         push!(client_keys, ip => key)
-        push!(c[:doc].clients, DocClient(key, [div("chifi-ChifiDocs")]))
+        default = div("chifi-ChifiDocs", children = c[:doc].docsystems["chifi"].modules["ChifiDocs"].pages)
+        push!(c[:doc].clients, DocClient(key, [default]))
     end
     key = client_keys[ip]
     client::DocClient = c[:doc].clients[key]
