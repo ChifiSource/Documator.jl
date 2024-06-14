@@ -13,7 +13,7 @@ mutable struct DocSystem <: DocServable
     ecodata::Dict{String, Any}
 end
 
-getindex(dc::Vector{<:DocServable}, ref::String) = begin
+getindex(dc::Vector{<:DocServable}, ref::AbstractString) = begin
     pos = findfirst(cl::DocServable -> cl.name == ref, dc)
     if isnothing(pos)
         throw("$ref was not in here")
@@ -23,12 +23,8 @@ end
 
 abstract type AbstractDocClient end
 
-mutable struct DocClient <: AbstractDocClient
-    key::String
-    tabs::Vector{Component{<:Any}}
-end
 
-getindex(dc::Vector{<:AbstractDocClient}, ref::String) = begin
+getindex(dc::Vector{<:AbstractDocClient}, ref::AbstractString) = begin
     pos = findfirst(cl::AbstractDocClient -> cl.key == ref, dc)
     if isnothing(pos)
 

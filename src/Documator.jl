@@ -14,6 +14,11 @@ session = Session(["/"])
 
 include("DocMods.jl")
 
+mutable struct DocClient <: AbstractDocClient
+    key::String
+    tabs::Vector{Component{<:Any}}
+end
+
 mutable struct ClientDocLoader <: Toolips.AbstractExtension
     dir::String
     docsystems::Vector{DocSystem}
@@ -119,7 +124,10 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
                     style!(doclabel, "padding" => 3px, "font-size" => 13pt, "color" => "white")
                     push!(menitem, doclabel)
                     on(c, menitem, "click") do cm::ComponentModifier
-                        open_tab!(cm, div(docn, children = docmod.pages))
+                        if "tab$(selected_system.name)-$docn" in cm
+                            return
+                        end
+                        open_tab!(c, cm, div("$(selected_system.name)-$docn", children = docmod.pages), selected_system.name => docn)
                         remove!(cm, "expandmenu")
                     end
                     menitem
@@ -131,11 +139,36 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
 end
 
 function switch_tabs!(c::AbstractConnection, cm::ComponentModifier, t::String)
-    
+    spl = split(t, "-")
+    key = c[:doc].client_keys[get_ip(c)]
+    sysdocn = c[:doc].docsystems[spl[1]].modules[spl[2]]
+    client_tabs = c[:doc].clients[key].tabs
+    [begin
+        tabn::String = active_tab.name
+        cm["tab$tabn"] = "class" => "tabinactive"
+        cm["closetab$tabn"] = "class" => "tabxinactive"
+    end for active_tab in client_tabs]
+    set_children!(cm, "leftmenu_items", get_left_menu(c, string(spl[1]) => string(spl[2])))
+    set_children!(cm, "main_window", [client_tabs[t]])
+    cm["tab$t"] = "class" => "tabactive"
+    cm["closetab$t"] = "class" => "tabxactive"
 end
 
-function open_tab!(cm::Components.Modifier, tab::Component{<:Any})
+function open_tab!(c::AbstractConnection, cm::Components.Modifier, tab::Component{<:Any}, ecomod::Pair{String, String})
     set_children!(cm, "main_window", [tab])
+    new_tab = make_tab(c, tab, true)
+    key = c[:doc].client_keys[get_ip(c)]
+    client_tabs = c[:doc].clients[key].tabs
+    style!(new_tab, "border-top-right-radius" => 7px)
+    [begin
+        tabn::String = active_tab.name
+        style!(cm, "tab$tabn", "border-top-right-radius" => 0px)
+        cm["tab$tabn"] = "class" => "tabinactive"
+        cm["closetab$tabn"] = "class" => "tabxinactive"
+    end for active_tab in client_tabs]
+    push!(client_tabs, tab)
+    set_children!(cm, "leftmenu_items", get_left_menu(c, ecomod))
+    append!(cm, "tabs", new_tab)
 end
 
 function make_stylesheet()
@@ -166,14 +199,35 @@ end
 
 
 function make_tab(c::AbstractConnection, tab::Component{<:Any}, active::Bool = true)
-    labelname = replace(tab.name, "-" => " | ")
-    tablabel = a("labeltab$(tab.name)", text = "$labelname")
-    closetab = a("closetab$(tab.name)", text = "<", class = "tabxinactive")
-    taba = div("tab$(tab.name)", class = "tabinactive")
-    style!(taba, "display" => "inline-block")
+    tabn = tab.name
+    act_str = "active"
+    tablabel = a("labeltab$tabn", text = replace(tabn, "-" => " | "))
+    style!(tablabel, "cursor" => "pointer")
+    closetab = a("closetab$(tabn)", text = "<", class = "tabxinactive")
+    taba = div("tab$(tabn)", class = "tabinactive")
+    style!(taba, "display" => "inline-block", "cursor" => "pointer")
     push!(taba, tablabel, closetab)
     on(c, taba, "click") do cm::ComponentModifier
-        switch_tabs!(c, cm, tab.name)
+        switch_tabs!(c, cm, tabn)
+    end
+    on(c, closetab, "click") do cm::ComponentModifier
+        this_tab = cm["tab$(tabn)"]
+        if this_tab["class"] != "tabactive"
+            return
+        end
+        key = c[:doc].client_keys[get_ip(c)]
+        tabs = c[:doc].clients[key].tabs
+        if length(tabs) == 1
+            # TODO " you cannot close your last tab"
+            return
+        end
+        f = findfirst(t -> t.name == tabn, tabs)
+        if f == length(tabs)
+            style!(cm, "tab$(tabs[length(tabs) - 1].name)", "border-top-right-radius" => 7px)
+        end
+        remove!(cm, "tab$(tab.name)")
+        deleteat!(tabs, f)
+        switch_tabs!(c, cm, tabs[1].name)
     end
     if active
         closetab[:class] = "tabxactive"
@@ -219,10 +273,16 @@ function build_leftmenu(c::AbstractConnection, mod::DocModule)
     items = build_leftmenu_elements(c, mod)
     main_menu = copy(c[:doc].pages["mainmenu"])
     bind_menu!(c, main_menu)
-    left_menu::Component{:div} = div("left_menu", children = vcat(main_menu, items))
+    item_inner = div("leftmenu_items", children = items)
+    left_menu::Component{:div} = div("left_menu")
+    push!(left_menu, main_menu, item_inner)
     style!(left_menu, "width" => 20percent, "background-color" => "darkgray", "border-bottom-left-radius" => 5px, 
     "border-top-left-radius" => 5px, "border-right" => "2px solid #333333")
     left_menu::Component{:div}
+end
+
+function get_left_menu(c::AbstractConnection, name::Pair{String, String})
+    build_leftmenu_elements(c, c[:doc].docsystems[name[1]].modules[name[2]])
 end
 
 function build_leftmenu_elements(c::AbstractConnection, mod::DocModule)
