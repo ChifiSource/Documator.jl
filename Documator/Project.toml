@@ -1,0 +1,12 @@
+name = "Documator"
+uuid = "4e841206-9f20-48d9-9ddd-dfd252355962"
+authors = ["emmac "]
+version = "0.1.0"
+
+[deps]
+OliveHighlighters = "f769160f-f39a-4920-b1de-ba699e2d8893"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+Toolips = "a47e2ad8-fcf7-417c-9746-32b9bdf220bd"
+ToolipsServables = "bf3a9e68-ca66-4981-8178-9d71c4f8abaa"
+ToolipsSession = "2fe55384-55bc-4df3-9d59-c817d405cd05"
