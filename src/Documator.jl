@@ -25,9 +25,12 @@ mutable struct ClientDocLoader <: Toolips.AbstractExtension
     client_keys::Dict{String, String}
     clients::Vector{DocClient}
     pages::Vector{AbstractComponent}
+    menus::Vector{AbstractComponent}
+    components::Vector{AbstractComponent}
     ClientDocLoader(docsystems::Vector{DocSystem} = Vector{DocSystem}()) = begin
         pages::Vector{AbstractComponent} = Vector{AbstractComponent}()
-        new("", docsystems, Dict{String, String}(), Vector{DocClient}(), pages)::ClientDocLoader
+        new("", docsystems, Dict{String, String}(), Vector{DocClient}(), pages, 
+        Vector{AbstractComponent}(), Vector{AbstractComponent}())::ClientDocLoader
     end
 end
 
@@ -36,6 +39,13 @@ function on_start(ext::ClientDocLoader, data::Dict{Symbol, Any}, routes::Vector{
     push!(routes, mount("/" => "$(ext.dir)/public") ...)
     push!(ext.pages, ss, generate_menu(ext.docsystems))
     push!(data, :doc => ext)
+    compress_pages!(ext)
+end
+
+
+function compress_pages!(ext::ClientDocLoader)
+    @info "COMPRESSING ..."
+    GC.gc(true)
 end
 
 function build_docstrings(mod::Module, docm::DocModule)
@@ -61,11 +71,15 @@ function build_docstrings(mod::Module, docm::DocModule)
         end
         on(docname, inline_comp, "click")
         inline_comp::Component{:a}
-    end for sname in names(mod)]
+    end for sname in names(mod, all = true)]
     return(docstrings, hover_docs)
 end
 
 function load_docs!(mod::Module, docloader::ClientDocLoader)
+    if :components in(names(mod))
+        docloader.components = Vector{AbstractComponent}(mod.components)
+        @info "loaded components: $(join("$(comp.name)|" for comp in docloader.components))"
+    end
     for system in docloader.docsystems
         @info "preloading $(system.name) content ..."
         for docmod in system.modules
@@ -75,8 +89,9 @@ function load_docs!(mod::Module, docloader::ClientDocLoader)
             [begin
                 ToolipsServables.interpolate!(page, "julia" => julia_interpolator, "img" => img_interpolator, 
                 "html" => html_interpolator)
-                ToolipsServables.interpolate!(page, docstrings ...)
+                ToolipsServables.interpolate!(page, docstrings ..., docloader.components ...)
             end for page in docmod.pages]
+            push!(docloader.menus, div(docmod.name, children = build_leftmenu_elements(docmod)))
         end
     end
 end
@@ -102,9 +117,28 @@ function generate_menu(mods::Vector{DocSystem})
 end
 
 function bind_menu!(c::AbstractConnection, menu::Component{:div})
-    [begin
+    [begin # menu children
+        selected_system = c[:doc].docsystems[child.name]
         econame::String = child.name
-        on(c, child, "click") do cm::ComponentModifier
+        submenu = [begin # submenu
+        docn = docmod.name
+        menitem = div("men$docn")
+        style!(menitem, "cursor" => "pointer", "border-radius" => 2px, "background-color" => docmod.color, 
+        "border-left" => "3px solid $(selected_system.ecodata["color"])")
+        doclabel = div("doclabel", text = docn)
+        style!(doclabel, "padding" => 3px, "font-size" => 13pt, "color" => "white")
+        push!(menitem, doclabel)
+        on(session, "$docn-butt") do cm::ComponentModifier
+            if "tab$(selected_system.name)-$docn" in cm
+                return
+            end
+            open_tab!(c, cm, div("$(selected_system.name)-$docn", children = docmod.pages), selected_system.name => docn)
+            remove!(cm, "expandmenu")
+        end
+        on("$docn-butt", menitem, "click")
+        menitem
+    end for docmod in selected_system.modules]
+        on(session, "dec$econame") do cm::ComponentModifier
             opened::String = cm["mainmenu"]["open"]
             if opened == econame
                 cm["mainmenu"] = "open" => "none"
@@ -114,27 +148,12 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
                 remove!(cm, "expandmenu")
             end
             cm["mainmenu"] = "open" => econame
-            selected_system = c[:doc].docsystems[child.name]
-            submenu = [begin
-                    docn = docmod.name
-                    menitem = div("men$docn")
-                    style!(menitem, "cursor" => "pointer", "border-radius" => 2px, "background-color" => docmod.color, 
-                    "border-left" => "3px solid $(selected_system.ecodata["color"])")
-                    doclabel = div("doclabel", text = docn)
-                    style!(doclabel, "padding" => 3px, "font-size" => 13pt, "color" => "white")
-                    push!(menitem, doclabel)
-                    on(c, menitem, "click") do cm::ComponentModifier
-                        if "tab$(selected_system.name)-$docn" in cm
-                            return
-                        end
-                        open_tab!(c, cm, div("$(selected_system.name)-$docn", children = docmod.pages), selected_system.name => docn)
-                        remove!(cm, "expandmenu")
-                    end
-                    menitem
-            end for docmod in selected_system.modules]
+            
             menuel = div("expandmenu", children = submenu)
             append!(cm, econame, menuel)
         end
+        on("dec$econame", child, "click")
+
     end for child in menu[:children]]
 end
 
@@ -148,7 +167,7 @@ function switch_tabs!(c::AbstractConnection, cm::ComponentModifier, t::String)
         cm["tab$tabn"] = "class" => "tabinactive"
         cm["closetab$tabn"] = "class" => "tabxinactive"
     end for active_tab in client_tabs]
-    set_children!(cm, "leftmenu_items", get_left_menu(c, string(spl[1]) => string(spl[2])))
+    set_children!(cm, "leftmenu_items", get_left_menu_elements(c, string(spl[1]) => string(spl[2]))[:children])
     set_children!(cm, "main_window", [client_tabs[t]])
     cm["tab$t"] = "class" => "tabactive"
     cm["closetab$t"] = "class" => "tabxactive"
@@ -167,7 +186,7 @@ function open_tab!(c::AbstractConnection, cm::Components.Modifier, tab::Componen
         cm["closetab$tabn"] = "class" => "tabxinactive"
     end for active_tab in client_tabs]
     push!(client_tabs, tab)
-    set_children!(cm, "leftmenu_items", get_left_menu(c, ecomod))
+    set_children!(cm, "leftmenu_items", get_left_menu_elements(c, ecomod)[:children])
     append!(cm, "tabs", new_tab)
 end
 
@@ -278,7 +297,7 @@ function get_docpage(c::AbstractConnection, name::String)
 end
 
 function build_leftmenu(c::AbstractConnection, mod::DocModule)
-    items = build_leftmenu_elements(c, mod)
+    items = get_left_menu_elements(c, mod)
     main_menu = copy(c[:doc].pages["mainmenu"])
     bind_menu!(c, main_menu)
     item_inner = div("leftmenu_items", children = items)
@@ -289,11 +308,15 @@ function build_leftmenu(c::AbstractConnection, mod::DocModule)
     left_menu::Component{:div}
 end
 
-function get_left_menu(c::AbstractConnection, name::Pair{String, String})
-    build_leftmenu_elements(c, c[:doc].docsystems[name[1]].modules[name[2]])
+function get_left_menu_elements(c::AbstractConnection, name::Pair{String, String})
+    c[:doc].menus[name[2]]
 end
 
-function build_leftmenu_elements(c::AbstractConnection, mod::DocModule)
+function get_left_menu_elements(c::AbstractConnection, docmod::DocModule)
+    c[:doc].menus[docmod.name]
+end
+
+function build_leftmenu_elements(mod::DocModule)
     modcolor::String = mod.color
     [begin 
         pagename = page.name
@@ -325,9 +348,10 @@ function build_leftmenu_elements(c::AbstractConnection, mod::DocModule)
             nwcompsrc = string(nwcomp)
             pagesrc = pagesrc[1:minimum(nexth) - 1] * nwcompsrc * pagesrc[maximum(eotext) + 3:length(pagesrc)]
             men = div("page-$pagename-$e", align = "left", class = "menuitem")
-            on(c, men, "click") do cm::ComponentModifier
+            on(session, "$pagename-men") do cm::ComponentModifier
                 scroll_to!(cm, nwcomp)
             end
+            on("$pagename-men", men, "click")
             pos = nd + (length(nwcompsrc) - txtlen)
             e += 1
             labela = a("label-$pagename", text = txt)
