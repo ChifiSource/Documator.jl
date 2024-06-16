@@ -49,12 +49,17 @@ end
 
 JULIA_HIGHLIGHTER = OliveHighlighters.TextStyleModifier()
 OliveHighlighters.julia_block!(JULIA_HIGHLIGHTER)
-
+style!(JULIA_HIGHLIGHTER, :default, ["color" => "white"])
+style!(JULIA_HIGHLIGHTER, :function, ["color" => "lightblue"])
 function julia_interpolator(raw::String)
     tm = JULIA_HIGHLIGHTER
     set_text!(tm, raw)
     OliveHighlighters.mark_julia!(tm)
-    string(tm)::String
+    ret::String = string(tm)
+    OliveHighlighters.clear!(tm)
+    jl_container = div("jlcont", text = ret)
+    style!(jl_container, "background-color" => "#333333", "font-size" => 13pt, "padding" => 7px)
+    string(jl_container)::String
 end
 
 html_interpolator(raw::String) = OliveHighlighters.rep_in(raw)::String
@@ -87,7 +92,7 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
         pages = [begin
             rawsrc::String = replace(read(path * "/" * dpages[n], String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
             newmd = tmd(string(dpages[n - 1]), rawsrc)
-            newmd[:text] = replace(newmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--")
+            newmd[:text] = replace(newmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=")
             newmd
         end for n in range(2, length(dpages), step = 2)]
     end
