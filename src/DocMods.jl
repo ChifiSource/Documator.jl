@@ -50,7 +50,8 @@ end
 JULIA_HIGHLIGHTER = OliveHighlighters.TextStyleModifier()
 OliveHighlighters.julia_block!(JULIA_HIGHLIGHTER)
 style!(JULIA_HIGHLIGHTER, :default, ["color" => "white"])
-style!(JULIA_HIGHLIGHTER, :function, ["color" => "lightblue"])
+style!(JULIA_HIGHLIGHTER, :funcn, ["color" => "lightblue"])
+
 function julia_interpolator(raw::String)
     tm = JULIA_HIGHLIGHTER
     set_text!(tm, raw)
@@ -58,7 +59,7 @@ function julia_interpolator(raw::String)
     ret::String = string(tm)
     OliveHighlighters.clear!(tm)
     jl_container = div("jlcont", text = ret)
-    style!(jl_container, "background-color" => "#333333", "font-size" => 13pt, "padding" => 7px)
+    style!(jl_container, "background-color" => "#333333", "font-size" => 12pt, "padding" => 7px)
     string(jl_container)::String
 end
 

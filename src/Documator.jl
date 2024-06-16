@@ -196,9 +196,9 @@ function make_stylesheet()
     h2_sty = Style("h2", "color" => "#29232e")
     h3_sty = Style("h3", "color" => "#46383c")
     h4_sty = Style("h4", "color" => "darkblue")
-    cod_sty = Style("code", "background-color" => "#333333", "padding" => 3px, "border-radius" => 1px, "color" => "white", 
+    cod_sty = Style("code", "background-color" => "#333333", "padding" => 1.5px, "border-radius" => 1px, "color" => "white", 
     "font-size" => 10pt)
-    p_sty = Style("p", "color" => "#191922", "font-size" => 12pt)
+    p_sty = Style("p", "color" => "#191922", "font-size" => 13pt)
     ico_font = Style("@font-face", "font-family" => "'storycan'", "src" => "url(/fonts/storycan-icons.ttf)")
     tabs = ("padding" => 10px, "font-size" => 15pt, "font-weight" => "bold", 
     "color" => "#333333", "border-top" => "1px solid #333333", "border-right" => "1px solid #333333")
@@ -349,7 +349,7 @@ function build_leftmenu_elements(mod::DocModule)
             pagesrc = pagesrc[1:minimum(nexth) - 1] * nwcompsrc * pagesrc[maximum(eotext) + 3:length(pagesrc)]
             men = div("page-$pagename-$e", align = "left", class = "menuitem")
             on(session, "$pagename-men") do cm::ComponentModifier
-                scroll_to!(cm, nwcomp)
+                scroll_to!(cm, nwcomp, align_top = false)
             end
             on("$pagename-men", men, "click")
             pos = nd + (length(nwcompsrc) - txtlen)
