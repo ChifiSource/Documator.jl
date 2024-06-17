@@ -33,7 +33,7 @@ getindex(dc::Vector{<:AbstractDocClient}, ref::AbstractString) = begin
 end
 
 function read_doc_config(path::String, mod::Module = Main)
-    data = TOML.parse(read(path, String))
+    data = TOML.parse(read(path * "/config.toml", String))
     docsystems::Vector{DocSystem} = Vector{DocSystem}()
     for ecosystem in data
         ecodata = ecosystem[2]
@@ -87,16 +87,17 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
         return(nothing)::Nothing
     end
     pages = Vector{Component{<:Any}}()
-    path::String = split(path, "/")[1] * "/modules/" * dct_data["path"]
-    if "pages" in data_keys
-        dpages = dct_data["pages"]
-        pages = [begin
-            rawsrc::String = replace(read(path * "/" * dpages[n], String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
-            newmd = tmd(string(dpages[n - 1]), rawsrc)
-            newmd[:text] = replace(newmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=")
-            newmd
-        end for n in range(2, length(dpages), step = 2)]
-    end
-    DocModule(name, dct_data["color"], 
-        pages, path)
+    path::String = path * "/modules/" * dct_data["path"]
+    @info "|- - - $path"
+    pages = [begin
+        pagen = split(n, "_")[2]
+        # (cut off .md)
+        pagen = pagen[1:length(pagen) - 3]
+        rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
+        newmd = tmd(replace(pagen, " " => "-"), rawsrc)
+        newmd[:text] = replace(newmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
+        "&#39;" => "'")
+        newmd
+    end for n in readdir(path)]
+    DocModule(name, dct_data["color"], pages, path)
 end

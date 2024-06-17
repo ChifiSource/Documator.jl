@@ -50,12 +50,13 @@ end
 
 function build_docstrings(mod::Module, docm::DocModule)
     docstrings = Vector{Servable}()
+    ativ_mod = mod.eval(Meta.parse(docm.name))
     hover_docs = [begin
         docname = string(sname)
         # make doc-string
         docstring = "no documentation found for $docname :("
         try
-            docstring = string(mod.eval(Meta.parse("@doc($docname)")))
+            docstring = string(ativ_mod.eval(Meta.parse("@doc($docname)")))
         catch
         end
         docstr_tmd = tmd("$docname-md", string(docstring))
@@ -71,7 +72,7 @@ function build_docstrings(mod::Module, docm::DocModule)
         end
         on(docname, inline_comp, "click")
         inline_comp::Component{:a}
-    end for sname in names(mod, all = true)]
+    end for sname in names(ativ_mod, all = true)]
     return(docstrings, hover_docs)
 end
 
@@ -284,7 +285,7 @@ function build_main(c::AbstractConnection, client::DocClient)
     style!(main_window, "background-color" => "white", "padding" => 30px, "border-right" => "2px soid #211f1f")
     main_container::Component{:div} = div("main-container", children = [tabbar, main_window])
     style!(main_container, "height" => 80percent, "width" => 85percent, "background" => "transparent", "padding" => 0px, "display" => "flex", "flex-direction" => "column", 
-    "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border-bottom" => "2px soid #211f1f")
+    "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border-bottom" => "2px soid #211f1f", "margin-left" => 20.12percent)
     return(main_container::Component{:div}, docname)
 end
 
@@ -304,7 +305,7 @@ function build_leftmenu(c::AbstractConnection, mod::DocModule)
     left_menu::Component{:div} = div("left_menu")
     push!(left_menu, main_menu, item_inner)
     style!(left_menu, "width" => 20percent, "background-color" => "white", "border-bottom-left-radius" => 5px, 
-    "border-top-left-radius" => 5px, "border-right" => "2px solid #333333")
+    "border-top-left-radius" => 5px, "border-right" => "2px solid #333333", "float" => "left", "position" => "fixed")
     left_menu::Component{:div}
 end
 
@@ -327,19 +328,18 @@ function build_leftmenu_elements(mod::DocModule)
         headings = Vector{AbstractComponent}()
         e::Int64 = 1
         while true
-            nexth = findnext("<h", pagesrc, pos)
-            if isnothing(nexth)
+            nexth = [findnext("<h1>", pagesrc, pos), findnext("<h2>", pagesrc, pos), 
+                findnext("<h3>", pagesrc, pos)]
+            filter!(point -> ~(isnothing(point)), nexth)
+            if length(nexth) == 0
                 break
             end
-            lvl = pagesrc[maximum(nexth) + 1]
-            if ~(lvl in lvls)
-                pos = maximum(nexth) + 2
-                continue
-            end
-            nd = findnext(">", pagesrc, maximum(nexth))[1]
-            eotext = findnext("</h", pagesrc, nd)
+            nexth = sort(collect(nexth), by=x->x[1])[1]
+            nd = maximum(nexth)
+            lvl = pagesrc[maximum(nexth) - 1]
+            eotext = findnext("</h$lvl", pagesrc, nd)
             if isnothing(eotext)
-                pos = maximum(nexth) + 2
+                pos = maximum(nexth) + 1
                 continue
             end
             txt = pagesrc[nd + 1:minimum(eotext) - 1]
@@ -348,16 +348,16 @@ function build_leftmenu_elements(mod::DocModule)
             nwcompsrc = string(nwcomp)
             pagesrc = pagesrc[1:minimum(nexth) - 1] * nwcompsrc * pagesrc[maximum(eotext) + 3:length(pagesrc)]
             men = div("page-$pagename-$e", align = "left", class = "menuitem")
-            on(session, "$pagename-men") do cm::ComponentModifier
+            on(session, "$pagename-men-$e") do cm::ComponentModifier
                 scroll_to!(cm, nwcomp, align_top = false)
             end
-            on("$pagename-men", men, "click")
-            pos = nd + (length(nwcompsrc) - txtlen)
+            on("$pagename-men-$e", men, "click")
+            pos = nd + (length(nwcompsrc) - txtlen + 1)
             e += 1
             labela = a("label-$pagename", text = txt)
             style!(labela, "font-size" => 13pt, "font-weight" => "bold", "color" => "#333333")
             push!(men, labela)
-            style!(men, "background-color" => "white", "border-left" => "$(parse(Int64, lvl) * 2)px solid $(modcolor)")
+            style!(men, "background-color" => "white", "border-left" => "$(1 * 2)px solid $(modcolor)")
             push!(headings, men)
         end
         page[:text] = pagesrc
