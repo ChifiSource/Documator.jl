@@ -23,6 +23,27 @@ end
 
 abstract type AbstractDocClient end
 
+mutable struct DocClient <: AbstractDocClient
+    key::String
+    tabs::Vector{Component{<:Any}}
+end
+
+mutable struct ClientDocLoader <: Toolips.AbstractExtension
+    dir::String
+    docsystems::Vector{DocSystem}
+    client_keys::Dict{String, String}
+    clients::Vector{DocClient}
+    pages::Vector{AbstractComponent}
+    menus::Vector{AbstractComponent}
+    components::Vector{AbstractComponent}
+    ClientDocLoader(docsystems::Vector{DocSystem} = Vector{DocSystem}()) = begin
+        pages::Vector{AbstractComponent} = Vector{AbstractComponent}()
+        new("", docsystems, Dict{String, String}(), Vector{DocClient}(), pages, 
+        Vector{AbstractComponent}(), Vector{AbstractComponent}())::ClientDocLoader
+    end
+end
+
+docloader = ClientDocLoader()
 
 getindex(dc::Vector{<:AbstractDocClient}, ref::AbstractString) = begin
     pos = findfirst(cl::AbstractDocClient -> cl.key == ref, dc)
@@ -61,6 +82,25 @@ function julia_interpolator(raw::String)
     jl_container = div("jlcont", text = ret)
     style!(jl_container, "background-color" => "#333333", "font-size" => 12pt, "padding" => 7px)
     string(jl_container)::String
+end
+
+function docstring_interpolator(raw::String)
+    docnames = split(raw, "\n")
+    ret::String = ""
+    for name in docnames
+        found = findfirst(c -> c.name == "$name-md", docloader.pages)
+        if isnothing(found)
+            @warn "unable to find quoted docstring: $name"
+            continue
+        end
+        container = div("container-$name")
+        style!(container, "background-color" => "#F5F5F5", "border-radius" => 8px, "border" => "2px solid #333333")
+        cop = docloader.pages["$name-md"]
+        style!(cop, "position" => "relative")
+        push!(container, h2(text = "$name docs"), cop)
+        ret =  ret * string(container)
+    end
+    ret::String
 end
 
 html_interpolator(raw::String) = OliveHighlighters.rep_in(raw)::String
