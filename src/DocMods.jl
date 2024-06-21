@@ -94,7 +94,8 @@ function docstring_interpolator(raw::String)
             continue
         end
         container = div("container-$name")
-        style!(container, "background-color" => "#F5F5F5", "border-radius" => 8px, "border" => "2px solid #333333")
+        style!(container, "background-color" => "#F5F5F5", "border-radius" => 8px, "border" => "2px solid #333333", 
+        "padding" => 8px, "margin" => 10px, "text-wrap" => "wrap", "flex-wrap" => "wrap")
         cop = docloader.pages["$name-md"]
         style!(cop, "position" => "relative")
         push!(container, h2(text = "$name docs"), cop)
@@ -136,7 +137,7 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
         rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
         newmd = tmd(replace(pagen, " " => "-"), rawsrc)
         newmd[:text] = replace(newmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
-        "&#39;" => "'")
+        "&#39;" => "'", "&#91;" => "[", "&#123;" => "{")
         newmd
     end for n in readdir(path)]
     DocModule(name, dct_data["color"], pages, path)

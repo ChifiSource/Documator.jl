@@ -39,7 +39,9 @@ function build_docstrings(mod::Module, docm::DocModule)
             docstring = string(ativ_mod.eval(Meta.parse("@doc($docname)")))
         catch
         end
-        docstr_tmd = tmd("$docname-md", string(docstring))
+        docstr_tmd = tmd("$docname-md", replace(docstring, "\"" => "\\|", "<" => "|\\", ">" => "||\\"))
+        docstr_tmd[:text] = replace(docstr_tmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
+        "&#39;" => "'", "&#91;" => "[", "&#123;" => "{")
         ToolipsServables.interpolate!(docstr_tmd, "julia" => julia_interpolator, "img" => img_interpolator, 
                 "html" => html_interpolator, "docstrings" => docstring_interpolator)
         inline_comp = a(docname, text = docname, class = "inline-doc")
@@ -47,8 +49,8 @@ function build_docstrings(mod::Module, docm::DocModule)
         on(session, docname) do cm::ComponentModifier
             docstr_window = div("$docname-window", children = [docstr_tmd], align = "left")
             cursor = cm["doccursor"]
-            xpos, ypos, scrollx, scrolly = parse(Int64, cursor["x"]), parse(Int64, cursor["y"]), parse(Int64, cursor["scrollx"]), parse(Int64, cursor["scrolly"])
-            style!(docstr_window, "position" => "absolute", "top" => ypos + scrolly, "left" => xpos + scrollx, 
+            ypos, scrolly = parse(Int64, cursor["y"]), parse(Int64, cursor["scrollx"]), parse(Int64, cursor["scrolly"])
+            style!(docstr_window, "position" => "absolute", "top" => ypos + scrolly, "left" => 20percent,
             "border-radius" => 4px, "border" => "2px solid #333333", "background-color" => "white", "padding" => 15px)
             append!(cm, "main", docstr_window)
         end
@@ -184,7 +186,8 @@ function make_stylesheet()
     h4_sty = Style("h4", "color" => "darkblue")
     cod_sty = Style("code", "background-color" => "#333333", "padding" => 1.5px, "border-radius" => 1px, "color" => "white", 
     "font-size" => 10pt)
-    jl_cod_sty = Style("code.language-julia", "background-color" => "#333333", "padding" => 10px, "border-radius" => 1px, "font-size" => 10pt)
+    jl_cod_sty = Style("code.language-julia", "background-color" => "#333333", "padding" => 10px, "border-radius" => 1px, "font-size" => 10pt, 
+    "text-wrap" => "wrap", "overflow-x" => "scroll")
     p_sty = Style("p", "color" => "#191922", "font-size" => 12pt, "font-family" => "lectus")
     lect_font = Style("@font-face", "font-family" => "'lectus'", "src" => "url(/fonts/mreg.ttf)")
     ico_font = Style("@font-face", "font-family" => "'storycan'", "src" => "url(/fonts/storycan-icons.ttf)")
@@ -270,10 +273,11 @@ function build_main(c::AbstractConnection, client::DocClient)
     tabbar, docname = generate_tabbar(c, client)
     main_window = div("main_window", align = "left")
     push!(main_window, get_docpage(c, docname))
-    style!(main_window, "background-color" => "white", "padding" => 30px, "border-right" => "2px soid #211f1f")
+    style!(main_window, "background-color" => "white", "padding" => 30px, "border-right" => "2px soid #211f1f", 
+    "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "hidden")
     main_container::Component{:div} = div("main-container", children = [tabbar, main_window])
-    style!(main_container, "height" => 100percent, "width" => 78percent, "background" => "transparent", "padding" => 0px, "display" => "flex", "flex-direction" => "column", 
-    "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border-bottom" => "2px soid #211f1f", "margin-left" => 21percent)
+    style!(main_container, "height" => 100percent, "width" => 78percent, "background" => "transparent", "padding" => 0px, "display" => "flex", 
+    "flex-direction" => "column", "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border-bottom" => "2px soid #211f1f")
     return(main_container::Component{:div}, docname)
 end
 
@@ -290,10 +294,11 @@ function build_leftmenu(c::AbstractConnection, mod::DocModule)
     main_menu = copy(c[:doc].pages["mainmenu"])
     bind_menu!(c, main_menu)
     item_inner = div("leftmenu_items", children = items)
+    style!(item_inner, "overflow-y" => "scroll", "max-height" => 70percent, "overflow-x" => "hidden")
     left_menu::Component{:div} = div("left_menu")
     push!(left_menu, main_menu, item_inner)
     style!(left_menu, "width" => 20percent, "background-color" => "white", "border-bottom-left-radius" => 5px, 
-    "border-top-left-radius" => 5px, "border-right" => "2px solid #333333", "float" => "left", "position" => "fixed", 
+    "border-top-left-radius" => 5px, "border-right" => "2px solid #333333", 
     "margin-left" => 1percent, "height" => 100percent)
     left_menu::Component{:div}
 end
@@ -335,7 +340,20 @@ function build_leftmenu_elements(mod::DocModule)
             txtlen = length(txt)
             nwcomp = Component{Symbol("h$lvl")}("$pagename-$e", text = txt)
             nwcompsrc = string(nwcomp)
-            pagesrc = pagesrc[1:minimum(nexth) - 1] * nwcompsrc * pagesrc[maximum(eotext) + 3:length(pagesrc)]
+            try
+                pagesrc = pagesrc[1:minimum(nexth) - 1] * nwcompsrc * pagesrc[maximum(eotext) + 3:length(pagesrc)]
+            catch
+                try
+                    pagesrc = pagesrc[1:minimum(nexth) - 1] * nwcompsrc * pagesrc[maximum(eotext) + 4:length(pagesrc)]
+                catch
+                    try
+                        pagesrc = pagesrc[1:minimum(nexth) - 2] * nwcompsrc * pagesrc[maximum(eotext) + 3:length(pagesrc)]
+                    catch
+                        pos = maximum(eotext)
+                        continue
+                    end
+                end
+            end
             men = div("page-$pagename-$e", align = "left", class = "menuitem")
             on(session, "$pagename-men-$e") do cm::ComponentModifier
                 scroll_to!(cm, nwcomp, align_top = false)
@@ -381,16 +399,12 @@ function home(c::Toolips.AbstractConnection)
     pages = c[:doc].pages
     write!(c, pages["styles"])
     mainbody::Component{:body} = body("main", align = "center")
-    style!(mainbody, "background-color" => "#333333")
-    app_window::Component{:div} = div("app-window")
-    style!(app_window, "background-color" => "#333333", "display" => "flex", 
-    "transition" => 1s, "display" => "flex", "flex-direction" => "row")
+    style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s, "display" => "flex", "flex-direction" => "row")
     main_container::Component{:div}, mod::String = build_main(c, client)
     ecopage = split(mod, "-")
     loaded_page = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[length(ecopage)])]
     left_menu = build_leftmenu(c, loaded_page)
-    push!(app_window, left_menu, main_container)
-    push!(mainbody, cursor("doccursor"), app_window)
+    push!(mainbody, cursor("doccursor"), left_menu, main_container)
     write!(c, mainbody)
 end
 
