@@ -80,7 +80,8 @@ function julia_interpolator(raw::String)
     ret::String = string(tm)
     OliveHighlighters.clear!(tm)
     jl_container = div("jlcont", text = ret)
-    style!(jl_container, "background-color" => "#333333", "font-size" => 12pt, "padding" => 7px)
+    style!(jl_container, "background-color" => "#333333", "font-size" => 10pt, "padding" => 25px, 
+    "margin" => 25px)
     string(jl_container)::String
 end
 
@@ -95,7 +96,7 @@ function docstring_interpolator(raw::String)
         end
         container = div("container-$name")
         style!(container, "background-color" => "#F5F5F5", "border-radius" => 8px, "border" => "2px solid #333333", 
-        "padding" => 8px, "margin" => 10px, "text-wrap" => "wrap", "flex-wrap" => "wrap")
+        "padding" => 25px, "margin" => 25px, "text-wrap" => "wrap", "flex-wrap" => "wrap", "font-size" => 12pt)
         cop = docloader.pages["$name-md"]
         style!(cop, "position" => "relative")
         push!(container, h2(text = "$name docs"), cop)
@@ -137,8 +138,12 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
         rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
         newmd = tmd(replace(pagen, " " => "-"), rawsrc)
         newmd[:text] = replace(newmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
-        "&#39;" => "'", "&#91;" => "[", "&#123;" => "{")
+        "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
         newmd
     end for n in readdir(path)]
     DocModule(name, dct_data["color"], pages, path)
+end
+
+function generate(groups::Pair{String, Vector{Module}} ...)
+
 end

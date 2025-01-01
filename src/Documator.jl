@@ -41,7 +41,7 @@ function build_docstrings(mod::Module, docm::DocModule)
         end
         docstr_tmd = tmd("$docname-md", replace(docstring, "\"" => "\\|", "<" => "|\\", ">" => "||\\"))
         docstr_tmd[:text] = replace(docstr_tmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
-        "&#39;" => "'", "&#91;" => "[", "&#123;" => "{")
+        "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
         ToolipsServables.interpolate!(docstr_tmd, "julia" => julia_interpolator, "img" => img_interpolator, 
                 "html" => html_interpolator, "docstrings" => docstring_interpolator)
         inline_comp = a(docname, text = docname, class = "inline-doc")
@@ -209,10 +209,12 @@ function make_stylesheet()
     "display" => "inline-block", "opacity" => 100percent, "transition" => 400ms)
     menu_holder = Style("div.mmenuholder", "z-index" => 2, "transition" => 800ms,"overflow" => "hidden")
     menu_holder:"hover":["transform" => scale(1.1)]
+    scroll_track = Style("::-webkit-scrollbar-track", "color" => "pink")
+    scroll_thumb = Style("::-webkit-scrollbar-thumb", "color" => "lightblue")
     sheet = Component{:stylesheet}("styles")
     sheet[:children] = Vector{AbstractComponent}([tab_active, tab_inactive, tab_x_active, tab_x_inactive, 
     left_menu_elements, main_menus, menu_holder, ico_font, bttons, inldoc, h1_sty, h2_sty, h3_sty, h4_sty, p_sty, cod_sty, 
-    lect_font])
+    lect_font, scroll_thumb, scroll_track])
     compress!(sheet)
     sheet::Component{:stylesheet}
 end
@@ -273,7 +275,7 @@ function build_main(c::AbstractConnection, client::DocClient)
     tabbar, docname = generate_tabbar(c, client)
     main_window = div("main_window", align = "left")
     push!(main_window, get_docpage(c, docname))
-    style!(main_window, "background-color" => "white", "padding" => 30px, "border-right" => "2px soid #211f1f", 
+    style!(main_window, "background-color" => "white", "padding" => 70px, "border-right" => "2px soid #211f1f", 
     "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "hidden")
     main_container::Component{:div} = div("main-container", children = [tabbar, main_window])
     style!(main_container, "height" => 100percent, "width" => 78percent, "background" => "transparent", "padding" => 0px, "display" => "flex", 
