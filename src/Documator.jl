@@ -194,11 +194,6 @@ function make_stylesheet()
     p_sty = Style("p", "color" => "#191922", "font-size" => 12pt, "font-family" => "lectus")
     lect_font = Style("@font-face", "font-family" => "'lectus'", "src" => "url(/fonts/mreg.ttf)")
     ico_font = Style("@font-face", "font-family" => "'storycan'", "src" => "url(/fonts/storycan-icons.ttf)")
-    tabs = ("padding" => 10px, "font-size" => 15pt, "font-weight" => "bold", 
-    "color" => "#333333", "border-top" => "1px solid #333333", "border-right" => "1px solid #333333")
-    tab_active = Style("div.tabactive",  "background-color" => "white", tabs ...)
-    tab_inactive = Style("div.tabinactive", "background-color" => "lightgray", "cursor" => "pointer", 
-    "border-bottom" => "1px solid #333333", tabs ...)
     inldoc = Style("a.inline-doc", "color" => "darkblue", "font-weight" => "bold", 
     "font-size" => 13pt, "cursor" => "pointer", "transition" => 400ms)
     inldoc:"hover":["scale" => "1.07", "color" => "lightblue"]
@@ -211,12 +206,11 @@ function make_stylesheet()
     main_menus = Style("a.mainmenulabel", "font-size" => 18pt, "font-weight" => "bold", 
     "display" => "inline-block", "opacity" => 100percent, "transition" => 400ms)
     menu_holder = Style("div.mmenuholder", "z-index" => 2, "transition" => 800ms,"overflow" => "hidden")
-    menu_holder:"hover":["transform" => scale(1.1)]
     scroll_track = Style("::-webkit-scrollbar-track", "color" => "pink")
     scroll_thumb = Style("::-webkit-scrollbar-thumb", "color" => "lightblue")
     sheet = Component{:stylesheet}("styles")
-    sheet[:children] = Vector{AbstractComponent}([tab_active, tab_inactive, tab_x_active, tab_x_inactive, 
-    left_menu_elements, main_menus, menu_holder, ico_font, bttons, inldoc, h1_sty, h2_sty, h3_sty, h4_sty, p_sty, cod_sty, 
+    sheet[:children] = Vector{AbstractComponent}([left_menu_elements, main_menus, 
+    menu_holder, ico_font, bttons, inldoc, h1_sty, h2_sty, h3_sty, h4_sty, p_sty, cod_sty, 
     lect_font, scroll_thumb, scroll_track])
     compress!(sheet)
     sheet::Component{:stylesheet}
@@ -226,12 +220,16 @@ end
 function build_main(c::AbstractConnection, docname::String)
     main_window = div("main_window", align = "left")
     push!(main_window, get_docpage(c, docname))
-    style!(main_window, "background-color" => "white", "padding" => 70px, "border-right" => "2px soid #211f1f", 
-    "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "hidden")
-    main_container::Component{:div} = div("main-container", children = [main_window])
-    style!(main_container, "height" => 100percent, "width" => 78percent, "background" => "transparent", "padding" => 0px, "display" => "flex", 
-    "flex-direction" => "column", "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border-bottom" => "2px soid #211f1f")
-    main_container::Component{:div}
+    style!(main_window, "background-color" => "white", "padding" => 0px, "border-right" => "2px soid #211f1f", 
+    "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "hidden", "width" => 80percent,
+    "position" => "absolute", "top" => 7percent, "left" => 20percent)
+    main_window::Component{:div}
+end
+
+function build_topbar(c::AbstractConnection, docname::String)
+    topbar = div("topbar", text = "top")
+    style!(topbar, "width" => 80percent, "margin-left" => 20percent, "padding" => 5px, "background-color" => "darkblue")
+    topbar
 end
 
 function get_docpage(c::AbstractConnection, name::String)
@@ -253,8 +251,8 @@ function build_leftmenu(c::AbstractConnection, name::String)
     left_menu::Component{:div} = div("left_menu")
     push!(left_menu, main_menu, item_inner)
     style!(left_menu, "width" => 20percent, "background-color" => "white", "border-bottom-left-radius" => 5px, 
-    "border-top-left-radius" => 5px, "border-right" => "2px solid #333333", 
-    "margin-left" => 1percent, "height" => 100percent)
+    "border-top-left-radius" => 5px, "border-right" => "2px solid #333333", "position" => "absolute", "left" => 0percent, "top" => 0percent,
+    "height" => 100percent)
     left_menu::Component{:div}
 end
 
@@ -363,7 +361,6 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
     requested_page = get_route(c)
     if contains(requested_page, ".")
         if requested_page in rs[1].file_routes
-            @info requested_page
             route!(c, rs[1].file_routes)
         end
         return
@@ -377,8 +374,9 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
     else
         loaded_page = docloader.homename
     end
+    bar = build_topbar(c, loaded_page)
     left_menu = build_leftmenu(c, loaded_page)
-    push!(mainbody, left_menu, build_main(c, loaded_page))
+    push!(mainbody, bar, left_menu, build_main(c, loaded_page))
     write!(c, mainbody)
 end
 
