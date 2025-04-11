@@ -10,7 +10,7 @@ using OliveHighlighters
 
 # extensions
 logger = Toolips.Logger()
-session = Session(["/"], invert_active = true)
+session = Session(Vector{String}(), invert_active = true)
 
 include("DocMods.jl")
 
@@ -117,14 +117,9 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
         doclabel = div("doclabel", text = docn)
         style!(doclabel, "padding" => 3px, "font-size" => 13pt, "color" => "white")
         push!(menitem, doclabel)
-        on(session, "$docn-butt") do cm::ComponentModifier
-            if "tab$(selected_system.name)-$docn" in cm
-                return
-            end
-            open_tab!(c, cm, div("$(selected_system.name)-$docn", children = docmod.pages), selected_system.name => docn)
-            remove!(cm, "expandmenu")
+        on(menitem, "click") do cl::ClientModifier
+            redirect!(cl, "/$(selected_system.name)/$(docmod.name)")
         end
-        on("$docn-butt", menitem, "click")
         menitem
     end for docmod in selected_system.modules]
         on(session, "dec$econame") do cm::ComponentModifier
@@ -202,16 +197,17 @@ function make_stylesheet()
     "cursor" => "pointer", tab_x ...)
     tab_x_inactive = Style("a.tabxinactive", "color" => "#333333", "background-color" => "lightgray", "font-family" => "storycan",
      "padding" => 9px, tab_x ...)
-    left_menu_elements = Style("div.menuitem", "padding" => 8px, "cursor" => "pointer")
+    left_menu_elements = Style("div.menuitem", "padding" => 8px, "cursor" => "pointer", "overflow" => "visible")
     main_menus = Style("a.mainmenulabel", "font-size" => 18pt, "font-weight" => "bold", 
     "display" => "inline-block", "opacity" => 100percent, "transition" => 400ms)
     menu_holder = Style("div.mmenuholder", "z-index" => 2, "transition" => 800ms,"overflow" => "hidden")
-    scroll_track = Style("::-webkit-scrollbar-track", "color" => "pink")
-    scroll_thumb = Style("::-webkit-scrollbar-thumb", "color" => "lightblue")
+    scrtrack = Style("::-webkit-scrollbar-track", "background" => "transparent")
+    scrthumb = Style("::-webkit-scrollbar-thumb", "background" => "pink",
+    "border-radius" => "5px")
     sheet = Component{:stylesheet}("styles")
     sheet[:children] = Vector{AbstractComponent}([left_menu_elements, main_menus, 
     menu_holder, ico_font, bttons, inldoc, h1_sty, h2_sty, h3_sty, h4_sty, p_sty, cod_sty, 
-    lect_font, scroll_thumb, scroll_track])
+    lect_font, scrtrack, scrthumb])
     compress!(sheet)
     sheet::Component{:stylesheet}
 end
@@ -220,15 +216,24 @@ end
 function build_main(c::AbstractConnection, docname::String)
     main_window = div("main_window", align = "left")
     push!(main_window, get_docpage(c, docname))
-    style!(main_window, "background-color" => "white", "padding" => 0px, "border-right" => "2px soid #211f1f", 
-    "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "hidden", "width" => 80percent,
-    "position" => "absolute", "top" => 7percent, "left" => 20percent)
+    style!(main_window, "background-color" => "white", "padding" => 2percent, "border-left" => "2px soid #211f1f", 
+    "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "hidden", "width" => 76percent,
+    "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "max-height" => 95.85percent)
     main_window::Component{:div}
 end
 
 function build_topbar(c::AbstractConnection, docname::String)
-    topbar = div("topbar", text = "top")
-    style!(topbar, "width" => 80percent, "margin-left" => 20percent, "padding" => 5px, "background-color" => "darkblue")
+    top_buttons = Vector{AbstractComponent}()
+    if docname == docloader.homename
+        top_butt = a(text = "home", href = "/")
+        style!(top_butt, "padding" => .5percent, "background-color" => "#1e1e1e", "color" => "white", 
+        "font-weight" => "bold", "border-left" => "2px solid white", "cursor" => "pointer", 
+        "width" => 10percent)
+        push!(top_buttons, top_butt)
+    end
+    topbar = div("topbar", children = top_buttons, align = "left")
+    style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 20percent, "background-color" => "#28365e", 
+    "position" => "absolute", "top" => 0percent, "display" => "inline-flex")
     topbar
 end
 
@@ -247,7 +252,7 @@ function build_leftmenu(c::AbstractConnection, name::String)
     main_menu = copy(c[:doc].pages["mainmenu"])
     bind_menu!(c, main_menu)
     item_inner = div("leftmenu_items", children = items)
-    style!(item_inner, "overflow-y" => "scroll", "max-height" => 70percent, "overflow-x" => "hidden")
+    style!(item_inner, "overflow" => "visible")
     left_menu::Component{:div} = div("left_menu")
     push!(left_menu, main_menu, item_inner)
     style!(left_menu, "width" => 20percent, "background-color" => "white", "border-bottom-left-radius" => 5px, 
@@ -309,7 +314,7 @@ function build_leftmenu_elements(mod::DocModule)
             end
             men = div("page-$pagename-$e", align = "left", class = "menuitem")
             on(session, "$pagename-men-$e") do cm::ComponentModifier
-                scroll_to!(cm, nwcomp, align_top = false)
+                scroll_to!(cm, "main_menu", nwcomp, align_top = false)
             end
             on("$pagename-men-$e", men, "click")
             pos = nd + (length(nwcompsrc) - txtlen + 1)
@@ -329,6 +334,7 @@ function build_leftmenu_elements(mod::DocModule)
         pageover = div("pageover", align = "left")
         pagemenu = div("pagemenu-$pagename", align = "left", class = "menuitem")
         submenu = div("submenu", children = headings)
+        style!(submenu, "overflow" => "visible")
         style!(pagemenu, "background-color" => modcolor, "border-bottom" => "2px solid #333333")
         push!(pagemenu, labela, openbutton)
         push!(pageover, pagemenu, submenu)
