@@ -3,25 +3,27 @@ using Toolips
 using TOML
 using Toolips.Components
 import Toolips.Components: AbstractComponentModifier
-import Toolips: on_start
+import Toolips: on_start, route!
 import Base: getindex
 using ToolipsSession
 using OliveHighlighters
 
 # extensions
 logger = Toolips.Logger()
-session = Session(["/"])
+session = Session(["/"], invert_active = true)
 
 include("DocMods.jl")
 
 function on_start(ext::ClientDocLoader, data::Dict{Symbol, Any}, routes::Vector{<:AbstractRoute})
     ss = make_stylesheet()
-    push!(routes, mount("/" => "$(ext.dir)/public") ...)
+    DOCROUTER.file_routes = mount("/" => "$(ext.dir)/public")
+    for r in DOCROUTER.file_routes
+        push!(session.active_routes, r.path)
+    end
     push!(ext.pages, ss, generate_menu(ext.docsystems))
     push!(data, :doc => ext)
     compress_pages!(ext)
 end
-
 
 function compress_pages!(ext::ClientDocLoader)
     @info "COMPRESSING ..."
@@ -38,6 +40,7 @@ function build_docstrings(mod::Module, docm::DocModule)
         try
             docstring = string(ativ_mod.eval(Meta.parse("@doc($docname)")))
         catch
+
         end
         docstr_tmd = tmd("$docname-md", replace(docstring, "\"" => "\\|", "<" => "|\\", ">" => "||\\"))
         docstr_tmd[:text] = replace(docstr_tmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
@@ -220,78 +223,28 @@ function make_stylesheet()
 end
 
 
-function make_tab(c::AbstractConnection, tab::Component{<:Any}, active::Bool = true)
-    tabn = tab.name
-    act_str = "active"
-    tablabel = a("labeltab$tabn", text = replace(tabn, "-" => " | "))
-    closetab = a("closetab$(tabn)", text = "<", class = "tabxinactive")
-    taba = div("tab$(tabn)", class = "tabinactive")
-    style!(taba, "display" => "inline-block")
-    push!(taba, tablabel, closetab)
-    on(c, taba, "click") do cm::ComponentModifier
-        switch_tabs!(c, cm, tabn)
-    end
-    on(c, closetab, "click") do cm::ComponentModifier
-        this_tab = cm["tab$(tabn)"]
-        if this_tab["class"] != "tabactive"
-            return
-        end
-        key = c[:doc].client_keys[get_ip(c)]
-        tabs = c[:doc].clients[key].tabs
-        if length(tabs) == 1
-            # TODO " you cannot close your last tab"
-            return
-        end
-        f = findfirst(t -> t.name == tabn, tabs)
-        if f == length(tabs)
-            style!(cm, "tab$(tabs[length(tabs) - 1].name)", "border-top-right-radius" => 7px)
-        end
-        switch_tabs!(c, cm, tabs[f - 1].name)
-        remove!(cm, "tab$(tab.name)")
-        deleteat!(tabs, f)
-    end
-    if active
-        closetab[:class] = "tabxactive"
-        taba[:class] = "tabactive"
-    end
-    taba
-end
-
-function generate_tabbar(c::AbstractConnection, client::DocClient)
-    n::Int16 = Int16(length(client.tabs))
-    tabholder::Component{:div} = div("tabs", align = "left",
-    children = [make_tab(c, tab, false) for (e, tab) in enumerate(client.tabs)])
-    if length(tabholder[:children]) > 0
-        lasttab = tabholder[:children][length(tabholder[:children])]
-        style!(lasttab, "border-top-right-radius" => 7px)
-        tabholder[:children][1][:class] = "tabactive"
-        tabholder[:children][1][:children][2][:class] = "tabxactive"
-    end
-    style!(tabholder, "width" => 50percent, "background" => "transparent")
-    return(tabholder, client.tabs[1].name)
-end
-
-function build_main(c::AbstractConnection, client::DocClient)
-    tabbar, docname = generate_tabbar(c, client)
+function build_main(c::AbstractConnection, docname::String)
     main_window = div("main_window", align = "left")
     push!(main_window, get_docpage(c, docname))
     style!(main_window, "background-color" => "white", "padding" => 70px, "border-right" => "2px soid #211f1f", 
     "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "hidden")
-    main_container::Component{:div} = div("main-container", children = [tabbar, main_window])
+    main_container::Component{:div} = div("main-container", children = [main_window])
     style!(main_container, "height" => 100percent, "width" => 78percent, "background" => "transparent", "padding" => 0px, "display" => "flex", 
     "flex-direction" => "column", "border-bottom-right-radius" => 5px, "border-top-right-radius" => 5px, "border-bottom" => "2px soid #211f1f")
-    return(main_container::Component{:div}, docname)
+    main_container::Component{:div}
 end
 
 function get_docpage(c::AbstractConnection, name::String)
-    ecopage::Vector{SubString} = split(name, "-")
+    ecopage::Vector{SubString} = split(name, "/")
     if length(ecopage) == 2
         return(div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].pages))
     end
     c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])].pages[string(ecopage[2])]::Component{<:Any}
 end
 
-function build_leftmenu(c::AbstractConnection, mod::DocModule)
+function build_leftmenu(c::AbstractConnection, name::String)
+    ecopage = split(name, "/")
+    mod = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[length(ecopage)])]
     items = get_left_menu_elements(c, mod)
     main_menu = copy(c[:doc].pages["mainmenu"])
     bind_menu!(c, main_menu)
@@ -387,21 +340,10 @@ end
 
 function home(c::Toolips.AbstractConnection)
     # verify incoming client
-    client_keys::Dict{String, String} = c[:doc].client_keys
-    ip::String = get_ip(c)
-    if ~(ip in keys(client_keys))
-        key::String = Toolips.gen_ref(4)
-        push!(client_keys, ip => key)
-        default = div("chifi-ChifiDocs", children = c[:doc].docsystems["chifi"].modules["ChifiDocs"].pages)
-        push!(c[:doc].clients, DocClient(key, [default]))
-    end
-    key = client_keys[ip]
-    client::DocClient = c[:doc].clients[key]
-    # build the page
     pages = c[:doc].pages
     write!(c, pages["styles"])
     mainbody::Component{:body} = body("main", align = "center")
-    style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s, "display" => "flex", "flex-direction" => "row")
+    style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
     main_container::Component{:div}, mod::String = build_main(c, client)
     ecopage = split(mod, "-")
     loaded_page = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[length(ecopage)])]
@@ -409,6 +351,39 @@ function home(c::Toolips.AbstractConnection)
     push!(mainbody, cursor("doccursor"), left_menu, main_container)
     write!(c, mainbody)
 end
+
+abstract type AbstractDocRoute <: Toolips.AbstractRoute end
+
+mutable struct DocRoute <: AbstractDocRoute
+    file_routes::Vector{Toolips.Route}
+    DocRoute() = new(Vector{Toolips.Route}())
+end
+
+route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
+    requested_page = get_route(c)
+    if contains(requested_page, ".")
+        if requested_page in rs[1].file_routes
+            @info requested_page
+            route!(c, rs[1].file_routes)
+        end
+        return
+    end
+    pages = c[:doc].pages
+    write!(c, pages["styles"])
+    mainbody::Component{:body} = body("main", align = "center")
+    style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
+    if requested_page != "/"
+        loaded_page = requested_page[2:end]
+    else
+        loaded_page = docloader.homename
+    end
+    left_menu = build_leftmenu(c, loaded_page)
+    push!(mainbody, left_menu, build_main(c, loaded_page))
+    write!(c, mainbody)
+end
+
+
+DOCROUTER = DocRoute()
 
 """
 ```julia
@@ -418,12 +393,12 @@ yadda yadda, documentation.
 """
 function start_from_project(path::String = pwd(), mod::Module = Main; ip::Toolips.IP4 = "127.0.0.1":8000)
     docloader.dir = path
-    docloader.docsystems = read_doc_config(path * "/config.toml", mod)
+    docloader.docsystems, docloader.homename = read_doc_config(path * "/config.toml", mod)
     load_docs!(mod, docloader)
     start!(Documator, ip)
 end
 
 main = route(home, "/")
 # make sure to export!
-export main, default_404, logger, session, docloader, start_from_project, style!
+export DOCROUTER, logger, session, docloader, start_from_project, style!
 end # - module ChifiDocs <3

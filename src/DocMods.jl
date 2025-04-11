@@ -21,42 +21,31 @@ getindex(dc::Vector{<:DocServable}, ref::AbstractString) = begin
     dc[pos]::DocServable
 end
 
-abstract type AbstractDocClient end
-
-mutable struct DocClient <: AbstractDocClient
-    key::String
-    tabs::Vector{Component{<:Any}}
-end
-
 mutable struct ClientDocLoader <: Toolips.AbstractExtension
     dir::String
     docsystems::Vector{DocSystem}
-    client_keys::Dict{String, String}
-    clients::Vector{DocClient}
     pages::Vector{AbstractComponent}
     menus::Vector{AbstractComponent}
     components::Vector{AbstractComponent}
+    homename::String
     ClientDocLoader(docsystems::Vector{DocSystem} = Vector{DocSystem}()) = begin
         pages::Vector{AbstractComponent} = Vector{AbstractComponent}()
-        new("", docsystems, Dict{String, String}(), Vector{DocClient}(), pages, 
-        Vector{AbstractComponent}(), Vector{AbstractComponent}())::ClientDocLoader
+        new("", docsystems, pages, 
+        Vector{AbstractComponent}(), Vector{AbstractComponent}(), "")::ClientDocLoader
     end
 end
 
 docloader = ClientDocLoader()
 
-getindex(dc::Vector{<:AbstractDocClient}, ref::AbstractString) = begin
-    pos = findfirst(cl::AbstractDocClient -> cl.key == ref, dc)
-    if isnothing(pos)
-
-    end
-    dc[pos]::AbstractDocClient
-end
-
 function read_doc_config(path::String, mod::Module = Main)
     data = TOML.parse(read(path * "/config.toml", String))
     docsystems::Vector{DocSystem} = Vector{DocSystem}()
+    homepage = ""
     for ecosystem in data
+        if ecosystem[1] == "home"
+            homepage = ecosystem[2]
+            continue
+        end
         ecodata = ecosystem[2]
         name = ecosystem[1]
         mods = reverse(Vector{DocModule}(filter(k -> ~(isnothing(k)), [begin
@@ -65,7 +54,10 @@ function read_doc_config(path::String, mod::Module = Main)
         push!(docsystems, 
         DocSystem(name, mods, Dict{String, Any}(ecodata)))
     end
-    reverse(docsystems)::Vector{DocSystem}
+    if homepage == ""
+        homepage = docsystems[1].modules[1]
+    end
+    return(reverse(docsystems), homepage)
 end
 
 JULIA_HIGHLIGHTER = OliveHighlighters.TextStyleModifier()
