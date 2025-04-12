@@ -63,12 +63,30 @@ function build_docstrings(mod::Module, docm::DocModule)
     return(docstrings, hover_docs)
 end
 
+function generate_systempage(system::DocSystem)
+    sys_cover = h2(system.name, text = system.name)
+    @warn system.name
+    system_container = div(system.name, align = "left", children = Vector{AbstractComponent}([sys_cover]))
+    style!(sys_cover, "color" => system.ecodata["color"])
+    if haskey(system.ecodata, "description")
+        push!(system_container, tmd("sysdesc", system.ecodata["description"]))
+    end
+    for mod in system.modules
+        new_a = a("-", text = mod.name, href = system.name * "/$(mod.name)")
+        style!(new_a, "background-color" => mod.color, "padding" => 5px, "border-radius" => 3px, 
+        "color" => "white", "font-weight" => "bold", "cursor" => "pointer")
+        push!(system_container, new_a)
+    end
+    system_container
+end
+
 function load_docs!(mod::Module, docloader::ClientDocLoader)
     if :components in(names(mod))
         docloader.components = Vector{AbstractComponent}(mod.components)
         @info "loaded components: $(join("$(comp.name)|" for comp in docloader.components))"
     end
     for system in docloader.docsystems
+        push!(docloader.pages, generate_systempage(system))
         @info "preloading $(system.name) content ..."
         for docmod in system.modules
             @info "| $(docmod.name)"
@@ -141,41 +159,6 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
     end for child in menu[:children]]
 end
 
-function switch_tabs!(c::AbstractConnection, cm::ComponentModifier, t::String)
-    spl = split(t, "-")
-    key = c[:doc].client_keys[get_ip(c)]
-    sysdocn = c[:doc].docsystems[spl[1]].modules[spl[2]]
-    client_tabs = c[:doc].clients[key].tabs
-    [begin
-        tabn::String = active_tab.name
-        cm["tab$tabn"] = "class" => "tabinactive"
-        cm["closetab$tabn"] = "class" => "tabxinactive"
-    end for active_tab in client_tabs]
-    set_children!(cm, "leftmenu_items", get_left_menu_elements(c, string(spl[1]) => string(spl[2]))[:children])
-    set_children!(cm, "main_window", [client_tabs[t]])
-    cm["tab$t"] = "class" => "tabactive"
-    cm["closetab$t"] = "class" => "tabxactive"
-end
-
-function open_tab!(c::AbstractConnection, cm::Components.Modifier, tab::Component{<:Any}, ecomod::Pair{String, String})
-    key = c[:doc].client_keys[get_ip(c)]
-    client_tabs = c[:doc].clients[key].tabs
-    [begin
-        tabn::String = active_tab.name
-        if ~(tabn == tab.name)
-            style!(cm, "tab$tabn", "border-top-right-radius" => 0px)
-            cm["tab$tabn"] = "class" => "tabinactive"
-            cm["closetab$tabn"] = "class" => "tabxinactive"
-        end
-    end for active_tab in client_tabs]
-    set_children!(cm, "main_window", [tab])
-    new_tab = make_tab(c, tab, true)
-    style!(new_tab, "border-top-right-radius" => 7px)
-    push!(client_tabs, tab)
-    set_children!(cm, "leftmenu_items", get_left_menu_elements(c, ecomod)[:children])
-    append!(cm, "tabs", new_tab)
-end
-
 function make_stylesheet()
     bttons = Style("button", "font-family" => "storycan")
     h1_sty = Style("h1", "color" => "#333333")
@@ -204,10 +187,14 @@ function make_stylesheet()
     scrtrack = Style("::-webkit-scrollbar-track", "background" => "transparent")
     scrthumb = Style("::-webkit-scrollbar-thumb", "background" => "pink",
     "border-radius" => "5px")
+    topbutton = Style("a.topbutton", "padding" => .5percent, "background-color" => "#1e1e1e", "color" => "white", 
+    "font-weight" => "bold", "border-left" => "2px solid white", "cursor" => "pointer", 
+    "width" => 10percent, "transition" => 750ms, "padding-top" => .5percent)
+    topbutton:"hover":["border-bottom" => "3px solid orange", "font-size" => 14pt]
     sheet = Component{:stylesheet}("styles")
     sheet[:children] = Vector{AbstractComponent}([left_menu_elements, main_menus, 
     menu_holder, ico_font, bttons, inldoc, h1_sty, h2_sty, h3_sty, h4_sty, p_sty, cod_sty, 
-    lect_font, scrtrack, scrthumb])
+    lect_font, scrtrack, scrthumb, topbutton])
     compress!(sheet)
     sheet::Component{:stylesheet}
 end
@@ -224,22 +211,29 @@ end
 
 function build_topbar(c::AbstractConnection, docname::String)
     top_buttons = Vector{AbstractComponent}()
-    if docname == docloader.homename
-        top_butt = a(text = "home", href = "/")
-        style!(top_butt, "padding" => .5percent, "background-color" => "#1e1e1e", "color" => "white", 
-        "font-weight" => "bold", "border-left" => "2px solid white", "cursor" => "pointer", 
-        "width" => 10percent)
+    top_butt = a(text = "home", href = "/", class = "topbutton", align = "center")
+    push!(top_buttons, top_butt)
+    if docname != docloader.homename
+        docn_splits = split(docname, "/")
+        top_butt = a(text = docn_splits[1], href = "/" * docn_splits[1], class = "topbutton", align = "center")
         push!(top_buttons, top_butt)
+        if length(docn_splits) > 1
+            top_butt = a(text = docn_splits[2], href = "/" * docn_splits[1] * "/" * docn_splits[2], class = "topbutton", align = "center")
+            push!(top_buttons, top_butt)
+        end
     end
     topbar = div("topbar", children = top_buttons, align = "left")
-    style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 20percent, "background-color" => "#28365e", 
+    style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 20percent, "background-color" => "#1e1e1e", 
     "position" => "absolute", "top" => 0percent, "display" => "inline-flex")
     topbar
 end
 
 function get_docpage(c::AbstractConnection, name::String)
     ecopage::Vector{SubString} = split(name, "/")
-    if length(ecopage) == 2
+    n = length(ecopage)
+    if n == 1
+        return(div("$name", children = c[:doc].pages[name]))
+    elseif n == 2
         return(div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].pages))
     end
     c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])].pages[string(ecopage[2])]::Component{<:Any}
@@ -247,6 +241,9 @@ end
 
 function build_leftmenu(c::AbstractConnection, name::String)
     ecopage = split(name, "/")
+    if length(ecopage) == 1
+        return(div("-"))
+    end
     mod = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[length(ecopage)])]
     items = get_left_menu_elements(c, mod)
     main_menu = copy(c[:doc].pages["mainmenu"])
@@ -314,7 +311,8 @@ function build_leftmenu_elements(mod::DocModule)
             end
             men = div("page-$pagename-$e", align = "left", class = "menuitem")
             on(session, "$pagename-men-$e") do cm::ComponentModifier
-                scroll_to!(cm, "main_menu", nwcomp, align_top = false)
+                scroll_to!(cm, nwcomp)
+                scroll_to!(cm, "main", (0, 0))
             end
             on("$pagename-men-$e", men, "click")
             pos = nd + (length(nwcompsrc) - txtlen + 1)
@@ -342,20 +340,6 @@ function build_leftmenu_elements(mod::DocModule)
 end for page in mod.pages]::Vector{<:AbstractComponent}
 end
 
-function home(c::Toolips.AbstractConnection)
-    # verify incoming client
-    pages = c[:doc].pages
-    write!(c, pages["styles"])
-    mainbody::Component{:body} = body("main", align = "center")
-    style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
-    main_container::Component{:div}, mod::String = build_main(c, client)
-    ecopage = split(mod, "-")
-    loaded_page = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[length(ecopage)])]
-    left_menu = build_leftmenu(c, loaded_page)
-    push!(mainbody, cursor("doccursor"), left_menu, main_container)
-    write!(c, mainbody)
-end
-
 abstract type AbstractDocRoute <: Toolips.AbstractRoute end
 
 mutable struct DocRoute <: AbstractDocRoute
@@ -373,7 +357,7 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
     end
     pages = c[:doc].pages
     write!(c, pages["styles"])
-    mainbody::Component{:body} = body("main", align = "center")
+    mainbody::Component{:body} = body("main", align = "center", children = Vector{AbstractComponent}([cursor("doccursor")]))
     style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
     if requested_page != "/"
         loaded_page = requested_page[2:end]
@@ -402,7 +386,6 @@ function start_from_project(path::String = pwd(), mod::Module = Main; ip::Toolip
     start!(Documator, ip)
 end
 
-main = route(home, "/")
 # make sure to export!
 export DOCROUTER, logger, session, docloader, start_from_project, style!
 end # - module ChifiDocs <3
