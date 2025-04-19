@@ -46,15 +46,23 @@ function build_docstrings(mod::Module, docm::DocModule)
         docstr_tmd[:text] = replace(docstr_tmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
         "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
         ToolipsServables.interpolate!(docstr_tmd, "julia" => julia_interpolator, "img" => img_interpolator, 
-                "html" => html_interpolator, "docstrings" => docstring_interpolator)
+                "html" => html_interpolator, "docstrings" => docstring_interpolator, "example" => julia_interpolator)
         inline_comp = a(docname, text = docname, class = "inline-doc")
         push!(hover_docs, inline_comp)
         on(session, docname) do cm::ComponentModifier
-            docstr_window = div("$docname-window", children = [docstr_tmd], align = "left")
+            close_button = button("closedoc", text = "v")
+            style!(close_button, "background-color" => "#8a0a25", "color" => "white", 
+            "font-weight" => "bold", "padding" => .7percent, "border" => "none", 
+            "border-radius" => 6px, "font-size" => 16pt, "cursor" => "pointer")
+            on(close_button, "click") do cl::ClientModifier
+                remove!(cl, "$docname-window")
+            end
+            close_container = div("close_container", align = "right", children = [close_button])
+            docstr_window = div("$docname-window", children = [close_container, docstr_tmd], align = "left")
             cursor = cm["doccursor"]
-            ypos, scrolly = parse(Int64, cursor["y"]), parse(Int64, cursor["scrollx"]), parse(Int64, cursor["scrolly"])
-            style!(docstr_window, "position" => "absolute", "top" => ypos + scrolly, "left" => 20percent,
-            "border-radius" => 4px, "border" => "2px solid #333333", "background-color" => "white", "padding" => 15px)
+            style!(docstr_window, "position" => "absolute", "top" => 3percent, "left" => 20percent,
+            "border-radius" => 4px, "border" => "2px solid #333333", "background-color" => "white", "padding" => 15px, 
+            "height" => 89.1percent, "width" => 76percent, "overflow-y" => "scroll", "overflow-x" => "wrap")
             append!(cm, "main", docstr_window)
         end
         on(docname, inline_comp, "click")
@@ -204,8 +212,8 @@ function build_main(c::AbstractConnection, docname::String)
     main_window = div("main_window", align = "left")
     push!(main_window, get_docpage(c, docname))
     style!(main_window, "background-color" => "white", "padding" => 2percent, "border-left" => "2px soid #211f1f", 
-    "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "hidden", "width" => 76percent,
-    "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "max-height" => 95.85percent)
+    "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "wrap", "width" => 76percent,
+    "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "height" => 89.1percent)
     main_window::Component{:div}
 end
 
@@ -223,7 +231,7 @@ function build_topbar(c::AbstractConnection, docname::String)
         end
     end
     topbar = div("topbar", children = top_buttons, align = "left")
-    style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 20percent, "background-color" => "#1e1e1e", 
+    style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 19.91percent, "background-color" => "#1e1e1e", 
     "position" => "absolute", "top" => 0percent, "display" => "inline-flex")
     topbar
 end
@@ -252,8 +260,7 @@ function build_leftmenu(c::AbstractConnection, name::String)
     style!(item_inner, "overflow" => "visible")
     left_menu::Component{:div} = div("left_menu")
     push!(left_menu, main_menu, item_inner)
-    style!(left_menu, "width" => 20percent, "background-color" => "white", "border-bottom-left-radius" => 5px, 
-    "border-top-left-radius" => 5px, "border-right" => "2px solid #333333", "position" => "absolute", "left" => 0percent, "top" => 0percent,
+    style!(left_menu, "width" => 19.91percent, "background-color" => "white", "border-right" => "2px solid #1e1e1e", "position" => "absolute", "left" => 0percent, "top" => 0percent,
     "height" => 100percent)
     left_menu::Component{:div}
 end
@@ -276,7 +283,11 @@ function build_leftmenu_elements(mod::DocModule)
         pos::Int64 = 1
         headings = Vector{AbstractComponent}()
         e::Int64 = 1
+        n = length(pagesrc)
         while true
+            if pos > n
+                break
+            end
             nexth = [findnext("<h1>", pagesrc, pos), findnext("<h2>", pagesrc, pos), 
             findnext("<h3>", pagesrc, pos)]
             filter!(point -> ~(isnothing(point)), nexth)
@@ -311,7 +322,7 @@ function build_leftmenu_elements(mod::DocModule)
             end
             men = div("page-$pagename-$e", align = "left", class = "menuitem")
             on(session, "$pagename-men-$e") do cm::ComponentModifier
-                scroll_to!(cm, nwcomp)
+                scroll_to!(cm, nwcomp, align_top = true)
                 scroll_to!(cm, "main", (0, 0))
             end
             on("$pagename-men-$e", men, "click")
