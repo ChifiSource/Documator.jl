@@ -129,7 +129,7 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
         pagen = pagen[1:length(pagen) - 3]
         rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
         newmd = tmd(replace(pagen, " " => "-"), rawsrc)
-        newmd[:text] = replace(newmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
+        newmd[:text] = replace(Components.rep_in(newmd[:text]), "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€”" => "--", "&#61;" => "=", 
         "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
         newmd
     end for n in readdir(path)]

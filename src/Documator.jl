@@ -34,13 +34,12 @@ function build_docstrings(mod::Module, docm::DocModule)
     hover_docs = Vector{Toolips.AbstractComponent}()
     ativ_mod = mod.eval(Meta.parse(docm.name))
     docstrings = [begin
-        docname = string(sname)
+        docname = replace(string(sname), "#" => "")
         # make doc-string
         docstring = "no documentation found for $docname :("
         try
             docstring = string(ativ_mod.eval(Meta.parse("@doc($docname)")))
         catch
-
         end
         docstr_tmd = tmd("$docname-md", replace(docstring, "\"" => "\\|", "<" => "|\\", ">" => "||\\"))
         docstr_tmd[:text] = replace(docstr_tmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
@@ -73,7 +72,6 @@ end
 
 function generate_systempage(system::DocSystem)
     sys_cover = h2(system.name, text = system.name)
-    @warn system.name
     system_container = div(system.name, align = "left", children = Vector{AbstractComponent}([sys_cover]))
     style!(sys_cover, "color" => system.ecodata["color"])
     if haskey(system.ecodata, "description")
@@ -117,7 +115,7 @@ function generate_menu(mods::Vector{DocSystem})
         modname = menu_mod.name
         mdiv = div("$modname")
         preview_img = img("preview$modname", src = menu_mod.ecodata["icon"], width = 25px)
-        style!(preview_img, "display" => "inline-block")
+        style!(preview_img, "display" => "inline-block", "margin-right" => 5px)
         label_a = a("label$modname", text = modname, class = "mainmenulabel")
         style!(mdiv, "background-color" => menu_mod.ecodata["color"], "overflow" => "hidden", 
         "padding-top" => 2px, "transition" => 500ms, "cursor" => "pointer")
