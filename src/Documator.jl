@@ -261,8 +261,11 @@ function build_leftmenu(c::AbstractConnection, name::String)
     bind_menu!(c, main_menu)
     reference_button = div("refb", text = "reference", class = "menuitem", onclick="location.href='/$(ecopage[1])/$(mod.name)/reference';")
     style!(reference_button, "background-color" => "#77DD77", "border-left" => "4px solid $(mod.color)", 
-    "border-top" => "3px solid #333333", "color" => "#333333", "font-weight" => "bold")
-    items = [reference_button, items]
+    "color" => "#333333", "font-weight" => "bold")
+    head = div("n", text = ecopage[2])
+    style!(head, "font-size" => 16pt, "color" => "white", "padding" => 4px, "background-color" => mod.color, 
+    "font-weight" => "bold", "border-top" => "2px solid #333333")
+    items = [head, reference_button, items]
     item_inner = div("leftmenu_items", children = items)
     style!(item_inner, "overflow" => "visible")
     left_menu::Component{:div} = div("left_menu")
