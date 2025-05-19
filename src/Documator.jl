@@ -98,6 +98,7 @@ function load_docs!(mod::Module, docloader::ClientDocLoader)
             @info "| $(docmod.name)"
             this_docmod::Module = getfield(mod, Symbol(docmod.name))
             docstrings, hoverdocs = build_docstrings(mod, docmod)
+            docmod.docstrings = hoverdocs
             push!(docloader.pages, docstrings ...)
             [begin
                 ToolipsServables.interpolate!(page, "julia" => julia_interpolator, "img" => img_interpolator, 
@@ -205,8 +206,8 @@ function make_stylesheet()
     sheet::Component{:stylesheet}
 end
 
-
 function build_main(c::AbstractConnection, docname::String)
+    req_split = split(docname, "/")
     main_window = div("main_window", align = "left")
     push!(main_window, get_docpage(c, docname))
     style!(main_window, "background-color" => "white", "padding" => 2percent, "border-left" => "2px soid #211f1f", 
@@ -241,19 +242,27 @@ function get_docpage(c::AbstractConnection, name::String)
         return(div("$name", children = c[:doc].pages[name]))
     elseif n == 2
         return(div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].pages))
+    elseif n == 3
+        cont = div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].docstrings)
+        style!(cont, "overflow-x" => "auto", "overflow-y" => "scroll", "display" => "grid")
+        return(cont)
     end
     c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])].pages[string(ecopage[2])]::Component{<:Any}
 end
 
 function build_leftmenu(c::AbstractConnection, name::String)
     ecopage = split(name, "/")
-    if length(ecopage) == 1
+    if length(ecopage) == 1 || length(ecopage) == 3
         return(div("-"))
     end
     mod = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[length(ecopage)])]
     items = get_left_menu_elements(c, mod)
     main_menu = copy(c[:doc].pages["mainmenu"])
     bind_menu!(c, main_menu)
+    reference_button = div("refb", text = "reference", class = "menuitem", onclick="location.href='/$(ecopage[1])/$(mod.name)/reference';")
+    style!(reference_button, "background-color" => "#77DD77", "border-left" => "4px solid $(mod.color)", 
+    "border-top" => "3px solid #333333", "color" => "#333333", "font-weight" => "bold")
+    items = [reference_button, items]
     item_inner = div("leftmenu_items", children = items)
     style!(item_inner, "overflow" => "visible")
     left_menu::Component{:div} = div("left_menu")
@@ -329,7 +338,7 @@ function build_leftmenu_elements(mod::DocModule)
             labela = a("label-$pagename", text = txt)
             style!(labela, "font-size" => 13pt, "font-weight" => "bold", "color" => "#333333")
             push!(men, labela)
-            style!(men, "background-color" => "white", "border-left" => "$(1 * 2)px solid $(modcolor)")
+            style!(men, "background-color" => "white", "border-left" => "2px solid $(modcolor)")
             push!(headings, men)
         end
         page[:text] = pagesrc

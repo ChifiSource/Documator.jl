@@ -5,6 +5,9 @@ mutable struct DocModule <: DocServable
     color::String
     pages::Vector{Component{<:Any}}
     projectpath::String
+    docstrings::Vector{Component{<:Any}}
+    DocModule(name::String, color::String, pag::Vector, path::String) = new(name, 
+    color, pag, path, Vector{Component{<:Any}}())
 end
 
 mutable struct DocSystem <: DocServable
