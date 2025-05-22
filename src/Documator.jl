@@ -70,7 +70,7 @@ function make_docstring(mod::Module, name::Symbol)
 	end
 	if object !== nothing
         T = typeof(object)
-        if ~(T == Function || T == Type)
+        if ~(T isa Function || T isa Type || T isa Module)
             return("There is no documentation for this *object* of type `$T`.")
         end
         try
