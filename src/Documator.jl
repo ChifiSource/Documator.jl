@@ -30,6 +30,17 @@ function compress_pages!(ext::ClientDocLoader)
     GC.gc(true)
 end
 
+function get_doc_string(f)
+    d = typeof(f)
+	if d <: AbstractString
+        return(string(f))
+    elseif d == Components.Markdown.MD
+        return(string(f))
+	else
+		return join([safe_doc_string(d) for d in f], "\n---\n")
+	end
+end
+
 function build_docstrings(mod::Module, docm::DocModule)
     hover_docs = Vector{Toolips.AbstractComponent}()
     ativ_mod = mod.eval(Meta.parse(docm.name))
@@ -38,8 +49,9 @@ function build_docstrings(mod::Module, docm::DocModule)
         # make doc-string
         docstring = "no documentation found for $docname :("
         try
-            docstring = string(ativ_mod.eval(Meta.parse("@doc($docname)")))
-        catch
+            docstring = get_doc_string(ativ_mod.eval(Meta.parse("@doc($docname)")))
+        catch e
+            @warn e
         end
         docstr_tmd = tmd("$docname-md", replace(docstring, "\"" => "\\|", "<" => "|\\", ">" => "||\\"))
         docstr_tmd[:text] = replace(docstr_tmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
@@ -229,6 +241,7 @@ function build_topbar(c::AbstractConnection, docname::String)
             push!(top_buttons, top_butt)
         end
     end
+    # build searchbar here
     topbar = div("topbar", children = top_buttons, align = "left")
     style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 19.91percent, "background-color" => "#1e1e1e", 
     "position" => "absolute", "top" => 0percent, "display" => "inline-flex")

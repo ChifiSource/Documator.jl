@@ -69,6 +69,7 @@ JULIA_HIGHLIGHTER = OliveHighlighters.TextStyleModifier()
 OliveHighlighters.julia_block!(JULIA_HIGHLIGHTER)
 style!(JULIA_HIGHLIGHTER, :default, ["color" => "white"])
 style!(JULIA_HIGHLIGHTER, :funcn, ["color" => "lightblue"])
+style!(JULIA_HIGHLIGHTER, :params, ["color" => "#D2B48C"])
 
 function julia_interpolator(raw::String)
     tm = JULIA_HIGHLIGHTER
