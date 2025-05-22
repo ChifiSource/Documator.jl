@@ -32,7 +32,7 @@ end
 
 function get_doc_string(f)
     if isnothing(f)
-        ""
+        return("")
     end
     d = typeof(f)
     @warn d
@@ -41,7 +41,11 @@ function get_doc_string(f)
     elseif d == Components.Markdown.MD
         return(string(f))
 	else
-		return string(f.text)
+        try
+            return(f[1])
+        catch
+		    return string(f.text)
+        end
 	end
 end
 
