@@ -44,9 +44,11 @@ function get_doc_string(f)
         return(string(f))
 	else
         try
+            w = get_doc_string(f[1])
             @info "option 3"
-            return(get_doc_string(f[1]))
+            return(w)
         catch
+            @warn d
             @info "option 4"
 		    return string(f.text)
         end
