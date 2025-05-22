@@ -4,7 +4,7 @@ using TOML
 using Toolips.Components
 import Toolips.Components: AbstractComponentModifier
 import Toolips: on_start, route!
-import Base: getindex
+import Base: getindex, show
 using ToolipsSession
 using OliveHighlighters
 
@@ -452,6 +452,9 @@ mutable struct DocRoute <: AbstractDocRoute
     file_routes::Vector{Toolips.Route}
     DocRoute() = new(Vector{Toolips.Route}())
 end
+
+
+show(o::IO, r::DocRoute) = print(o, "Docroute ()")
 
 route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
     requested_page = get_route(c)
