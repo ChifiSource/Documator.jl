@@ -71,19 +71,18 @@ function make_docstring(mod::Module, name::Symbol)
 	if object !== nothing
         T = typeof(object)
         if ~(T isa Function || T isa Type || T isa Module)
-            return("There is no documentation for this *object* of type `$T`.")
+            doc = try
+			    Base.Docs.doc(T)
+		    catch e
+			    "(no documentation for $T found)"
+		    end
+            docstring = """There is no documentation for this *object* of type `$T`.
+            Documentation for $T: """ * doc
+            return()
         end
-        try
-            Base.Docs.doc(object)
-        catch
-
-        end
-
 		doc = try
 			Base.Docs.doc(object)
 		catch e
-            @warn "failed document $name"
-            @warn e
 			nothing
 		end
 
@@ -95,10 +94,7 @@ function make_docstring(mod::Module, name::Symbol)
 		elseif doc !== nothing
 			docstring = string(doc)
 		end
-    else
-        @warn "isnothing: $name"
 	end
-
 	return docstring
 end
 
