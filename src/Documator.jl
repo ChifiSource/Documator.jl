@@ -70,9 +70,17 @@ function make_docstring(mod::Module, name::Symbol)
 	end
 	
 	if object !== nothing
+        try
+            Base.Docs.doc(object)
+        catch
+
+        end
+
 		doc = try
 			Base.Docs.doc(object)
-		catch
+		catch e
+            @warn "failed document $name"
+            @warn e
 			nothing
 		end
 
@@ -84,6 +92,8 @@ function make_docstring(mod::Module, name::Symbol)
 		elseif doc !== nothing
 			docstring = string(doc)
 		end
+    else
+        @warn "isnothing: $name"
 	end
 
 	return docstring
