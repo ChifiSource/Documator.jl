@@ -56,23 +56,37 @@ function get_doc_string(f)
 end
 
 function make_docstring(mod::Module, name::Symbol)
-    docstring = "no documentation found for $name"
-    object = nothing
-    try
-        object = getfield(mod, name)
-    catch
-        try
-            object = mod.eval(Meta.parse(replace(string(sname), "#" => "")))
-        catch
-                
-        end
-    end
-    try
-        docstring = Base.Docs.doc(object)
-    catch
+	docstring = "no documentation found for $name"
+	tmpnm = replace(string(name), "#" => "")
+	name = Symbol(tmpnm)
+	object = try
+		getfield(mod, name)
+	catch
+		try
+			mod.eval(Meta.parse(tmpnm))
+		catch
+			nothing
+		end
+	end
+	
+	if object !== nothing
+		doc = try
+			Base.Docs.doc(object)
+		catch
+			nothing
+		end
 
-    end
-    return(string(docstring))
+		if doc isa Toolips.Components.Markdown.MD
+			# extract raw markdown string
+			docstring = sprint(Toolips.Components.Markdown.plain, doc)
+		elseif doc isa Base.Docs.DocStr
+			docstring = doc.content[1]  # access first element of svec
+		elseif doc !== nothing
+			docstring = string(doc)
+		end
+	end
+
+	return docstring
 end
 
 function build_docstrings(mod::Module, docm::DocModule)
