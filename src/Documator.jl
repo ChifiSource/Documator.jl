@@ -68,8 +68,11 @@ function make_docstring(mod::Module, name::Symbol)
 			nothing
 		end
 	end
-	
 	if object !== nothing
+        T = typeof(object)
+        if ~(T == Function || T == Type)
+            return("There is no documentation for this *object* of type `$T`.")
+        end
         try
             Base.Docs.doc(object)
         catch
