@@ -34,10 +34,8 @@ function get_doc_string(f)
     d = typeof(f)
 	if d <: AbstractString
         return(string(f))
-    elseif d == Components.Markdown.MD
-        return(string(f))
-	else
-		return join([safe_doc_string(d) for d in f], "\n---\n")
+    else
+		return f.text
 	end
 end
 
