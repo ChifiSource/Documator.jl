@@ -37,13 +37,17 @@ function get_doc_string(f)
     d = typeof(f)
     @warn d
 	if d <: AbstractString
+        @info "option 1"
         return(string(f))
     elseif d == Components.Markdown.MD
+        @info "option 2"
         return(string(f))
 	else
         try
-            return(f[1])
+            @info "option 3"
+            return(get_doc_string(f[1]))
         catch
+            @info "option 4"
 		    return string(f.text)
         end
 	end
@@ -249,7 +253,23 @@ function build_topbar(c::AbstractConnection, docname::String)
             push!(top_buttons, top_butt)
         end
     end
-    # build searchbar here
+    searchbox = textdiv("sqbox", text = "search")
+    common = ("padding" => 2percent, 
+    "border-radius" => 2px, "display" => "inline-block", "font-weight" => "bold")
+    style!(searchbox, "min-width" => 5percent, "width" => 5percent, "color" => "#1e1e1e", "font-weight" => "bold", "background-color" => "white",
+    common ...)
+    searchbutton = div("sqbutt", text = "search")
+    style!(searchbutton, "background-color" => "#333333", "font-weight" => "bold", "color" => "white", common ...)
+    on(searchbox, "focus") do cl::ClientModifier
+        set_text!(cl, searchbox, "")
+    end
+    ToolipsSession.bind(c, searchbutton, "Enter") do cm
+        prop = cm["sqbox"]["text"]
+        redirect!(cm, "/search?q=$prop")
+    end
+    search_container = div("searchcontainer", align = "right", children = [searchbox, searchbutton])
+    style!(search_container, "margin-left" => 35percent, "display" => "inline-flex", "width" => 5percent)
+    push!(top_buttons, search_container)
     topbar = div("topbar", children = top_buttons, align = "left")
     style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 19.91percent, "background-color" => "#1e1e1e", 
     "position" => "absolute", "top" => 0percent, "display" => "inline-flex")
