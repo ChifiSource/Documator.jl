@@ -57,11 +57,22 @@ end
 
 function make_docstring(mod::Module, name::Symbol)
     docstring = "no documentation found for $name"
+    object = nothing
     try
-        object = getfield(mod, name)
-        docstring = Base.Docs.doc(object)
-    catch e
-        @warn e
+        try
+            object = getfield(mod, name)
+        catch
+            try
+                object = mod.eval(Meta.parse(replace(string(sname), "#" => "")))
+            catch
+                
+            end
+        end
+        try
+            docstring = Base.Docs.doc(object)
+        catch
+            
+        end
     end
     return(string(docstring))
 end
