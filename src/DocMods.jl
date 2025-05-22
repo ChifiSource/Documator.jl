@@ -31,10 +31,12 @@ mutable struct ClientDocLoader <: Toolips.AbstractExtension
     menus::Vector{AbstractComponent}
     components::Vector{AbstractComponent}
     homename::String
+    routes::Vector{Toolips.Route{Connection}}
     ClientDocLoader(docsystems::Vector{DocSystem} = Vector{DocSystem}()) = begin
         pages::Vector{AbstractComponent} = Vector{AbstractComponent}()
         new("", docsystems, pages, 
-        Vector{AbstractComponent}(), Vector{AbstractComponent}(), "")::ClientDocLoader
+        Vector{AbstractComponent}(), Vector{AbstractComponent}(), "", 
+        Vector{Toolips.Route{Connection}}())::ClientDocLoader
     end
 end
 

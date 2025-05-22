@@ -244,7 +244,7 @@ function get_docpage(c::AbstractConnection, name::String)
         return(div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].pages))
     elseif n == 3
         cont = div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].docstrings)
-        style!(cont, "overflow-x" => "auto", "overflow-y" => "scroll", "display" => "grid")
+        style!(cont, "overflow-x" => "show", "overflow-y" => "scroll", "display" => "grid", "padding" => 5percent)
         return(cont)
     end
     c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])].pages[string(ecopage[2])]::Component{<:Any}
@@ -375,6 +375,9 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
             route!(c, rs[1].file_routes)
         end
         return
+    elseif requested_page in c[:doc].routes
+        route!(c, c[:doc].routes[requested_page])
+        return
     end
     pages = c[:doc].pages
     write!(c, pages["styles"])
@@ -390,7 +393,6 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
     push!(mainbody, bar, left_menu, build_main(c, loaded_page))
     write!(c, mainbody)
 end
-
 
 DOCROUTER = DocRoute()
 
