@@ -55,20 +55,26 @@ function get_doc_string(f)
 	end
 end
 
+function make_docstring(mod::Module, name::Symbol)
+    docstring = "no documentation found for $name"
+    try
+        object = getfield(mod, name)
+        docstring = Base.Docs.doc(object)
+    catch e
+        @warn e
+    end
+    return(string(docstring))
+end
+
 function build_docstrings(mod::Module, docm::DocModule)
     hover_docs = Vector{Toolips.AbstractComponent}()
     ativ_mod = mod.eval(Meta.parse(docm.name))
     docstrings = [begin
-        docname = replace(string(sname), "#" => "")
         # make doc-string
-        docstring = "no documentation found for $docname :("
-        try
-            docstring = get_doc_string(ativ_mod.eval(Meta.parse("@doc($docname)")))
-        catch e
-            @warn e
-        end
+        docname = replace(string(sname), "#" => "")
+        docstring = make_docstring(ativ_mod, sname)
         docstr_tmd = tmd("$docname-md", replace(docstring, "\"" => "\\|", "<" => "|\\", ">" => "||\\"))
-        docstr_tmd[:text] = replace(docstr_tmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€\"" => "--", "&#61;" => "=", 
+        docstr_tmd[:text] = replace(docstr_tmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€“" => "--", "&#61;" => "=", 
         "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
         ToolipsServables.interpolate!(docstr_tmd, "julia" => julia_interpolator, "img" => img_interpolator, 
                 "html" => html_interpolator, "docstrings" => docstring_interpolator, "example" => julia_interpolator)
