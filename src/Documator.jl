@@ -31,11 +31,17 @@ function compress_pages!(ext::ClientDocLoader)
 end
 
 function get_doc_string(f)
+    if isnothing(f)
+        ""
+    end
     d = typeof(f)
+    @warn d
 	if d <: AbstractString
         return(string(f))
-    else
-		return f.text
+    elseif d == Components.Markdown.MD
+        return(string(f))
+	else
+		return string(f.text)
 	end
 end
 
