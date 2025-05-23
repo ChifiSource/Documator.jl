@@ -337,6 +337,8 @@ function get_docpage(c::AbstractConnection, name::String)
 end
 
 function build_leftmenu(c::AbstractConnection, color::String, menus::Pair{String, String} ...)
+    div("sample", text = "sub-menu has yet to be implemented")
+end
 
 function build_leftmenu(c::AbstractConnection, name::String)
     ecopage = split(name, "/")
@@ -459,6 +461,35 @@ end
 
 show(o::IO, r::DocRoute) = print(o, "Docroute ()")
 
+function build_search_results(c::AbstractConnection, q::String)
+    main_window = div("main_window", align = "left")
+    header = h2(text = "results for '$q'")
+    for system in c[:doc].docsystems
+        for mod in system.modules
+            found_pages = findall(x -> contains(x[:text], q), mod.pages)
+            found_docstrings = findall(x -> contains(x[:text], q), mod.docstrings)
+            if length(found_pages) > 1
+                @warn system.name
+            end
+        end
+    end
+    push!(main_window, header)
+    style!(main_window, "background-color" => "white", "padding" => 2percent, "border-left" => "2px soid #211f1f", 
+    "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "wrap", "width" => 76percent,
+    "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "height" => 89.1percent)
+
+    mainbody::Component{:body} = body("main", align = "center", children = Vector{AbstractComponent}([cursor("doccursor")]))
+    style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
+    bar = build_topbar(c, "", "search" => "/search")
+    left_menu = build_leftmenu(c, "#1e1e1e", "hi" => "sample")
+    push!(mainbody, bar, left_menu, main_window)
+    write!(c, mainbody)
+end
+
+function build_search_error(c::AbstractConnection)
+
+end
+
 route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
     requested_page = get_route(c)
     if contains(requested_page, ".")
@@ -470,20 +501,20 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
         route!(c, c[:doc].routes[requested_page])
         return
     end
+    pages = c[:doc].pages
     if contains(requested_page, "/search")
         actual_search = requested_page[1:7] == "/search"
         args = get_args(c)
         if actual_search
+            write!(c, pages["styles"])
             if haskey(args, :q)
-
+                build_search_results(c, args[:q])
             else
-
+                build_search_error(c)
             end
             return
         end
     end
-    pages = c[:doc].pages
-    write!(c, "<meta charset=\"UTF-8\">")
     write!(c, pages["styles"])
     mainbody::Component{:body} = body("main", align = "center", children = Vector{AbstractComponent}([cursor("doccursor")]))
     style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
@@ -492,6 +523,7 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
     else
         loaded_page = docloader.homename
     end
+    write!(c, "<meta charset=\"UTF-8\">")
     bar = build_topbar(c, loaded_page)
     left_menu = build_leftmenu(c, loaded_page)
     push!(mainbody, bar, left_menu, build_main(c, loaded_page))
