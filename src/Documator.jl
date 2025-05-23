@@ -462,18 +462,31 @@ end
 show(o::IO, r::DocRoute) = print(o, "Docroute ()")
 
 function build_search_results(c::AbstractConnection, q::String)
-    main_window = div("main_window", align = "left")
-    header = h2(text = "results for '$q'")
+    # get search results
+    docstrings = Vector{AbstractComponent}()
+    res_pages = Vector{AbstractComponent}()
     for system in c[:doc].docsystems
         for mod in system.modules
             found_pages = findall(x -> contains(x[:text], q), mod.pages)
             found_docstrings = findall(x -> contains(x[:text], q), mod.docstrings)
-            if length(found_pages) > 1
-                @warn system.name
+            for page in found_pages
+                @info mod.pages[page].name
+                push!(res_pages, mod.pages[page])
+            end
+            for page in found_docstrings
+                push!(docstrings, mod.docstrings[page])
             end
         end
     end
-    push!(main_window, header)
+    # build body
+    header = h2(text = "results for '$q'")
+    docstr_container = div("dcr", children = docstrings)
+    pages_container = div("pgr", children = res_pages)
+    common = ("border-radius" => 6px, "border" => "2px solid #1e1e1e", "padding" => 2percent)
+    style!(pages_container, common ...)
+    style!(docstr_container, "display" => "grid", common ...)
+    main_window = div("main_window", align = "left", children = [header, docstr_container, 
+    pages_container])
     style!(main_window, "background-color" => "white", "padding" => 2percent, "border-left" => "2px soid #211f1f", 
     "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "wrap", "width" => 76percent,
     "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "height" => 89.1percent)
