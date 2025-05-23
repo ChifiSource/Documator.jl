@@ -8,6 +8,10 @@ import Base: getindex, show
 using ToolipsSession
 using OliveHighlighters
 
+FOROFOUR = begin
+    h2(text = "page not found (default documator 404)")
+end
+
 # extensions
 logger = Toolips.Logger()
 session = Session(Vector{String}(), invert_active = true)
@@ -298,7 +302,7 @@ function build_topbar(c::AbstractConnection, docname::String = "", menus::Pair{S
         end
     end
     searchbox = textdiv("sqbox", text = "search")
-    common = ("padding" => 1.5percent,
+    common = ("padding" => .1percent,
     "border-radius" => 2px, "display" => "inline-block", "font-weight" => "bold")
     style!(searchbox, "min-width" => 40percent, "width" => 40percent, "color" => "#1e1e1e", "font-weight" => "bold", "background-color" => "white", 
     "border-radius-top-right" => 0px, "border-radius-bottom-right" => 0px, common ...)
@@ -311,9 +315,9 @@ function build_topbar(c::AbstractConnection, docname::String = "", menus::Pair{S
         prop = cm["sqbox"]["text"]
         redirect!(cm, "/search?q=$prop")
     end
-    search_container = div("searchcontainer", align = "right", children = [searchbox, searchbutton])
-    style!(search_container, "margin-left" => 50percent, "display" => "inline-flex", "width" => 70percent, "min-width" => 70percent, 
-    "padding" => 1percent)
+    search_container = div("searchcontainer", align = "left", children = [searchbox, searchbutton])
+    style!(search_container, "float" => "right", "display" => "inline-flex", "width" => 70percent, "min-width" => 70percent, 
+    "padding" => .25percent)
     push!(top_buttons, search_container)
     topbar = div("topbar", children = top_buttons, align = "left")
     style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 19.91percent, "background-color" => "#1e1e1e", 
@@ -324,14 +328,27 @@ end
 function get_docpage(c::AbstractConnection, name::String)
     ecopage::Vector{SubString} = split(name, "/")
     n = length(ecopage)
+    if ~(ecopage[1] in [sys.name for sys in c[:doc].docsystems])
+        return(div("$name", children = FOROFOUR))
+    end
     if n == 1
         return(div("$name", children = c[:doc].pages[name]))
-    elseif n == 2
-        return(div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].pages))
+    end
+    system = c[:doc].docsystems[string(ecopage[1])]
+    if ~(ecopage[2] in [docmn.name for docmn in system.modules])
+        return(div("$name", children = FOROFOUR))
+    end
+    if n == 2
+        return(div("$name", children = system.modules[string(ecopage[2])].pages))
     elseif n == 3
-        cont = div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].docstrings)
-        style!(cont, "overflow-x" => "show", "overflow-y" => "scroll", "display" => "grid", "padding" => 5percent)
-        return(cont)
+        if ecopage[3] == "reference"
+            cont = div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].docstrings)
+            style!(cont, "overflow-x" => "show", "overflow-y" => "scroll", "display" => "grid", "padding" => 5percent)
+            return(cont)
+        else
+            # TODO generate specific docpage
+            return(div("$name", children = FOROFOUR))
+        end
     end
     c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])].pages[string(ecopage[2])]::Component{<:Any}
 end
@@ -470,7 +487,6 @@ function build_search_results(c::AbstractConnection, q::String)
             found_pages = findall(x -> contains(x[:text], q), mod.pages)
             found_docstrings = findall(x -> contains(x[:text], q), mod.docstrings)
             for page in found_pages
-                @info mod.pages[page].name
                 push!(res_pages, mod.pages[page])
             end
             for page in found_docstrings
