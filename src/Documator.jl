@@ -280,11 +280,15 @@ function build_main(c::AbstractConnection, docname::String)
     main_window::Component{:div}
 end
 
-function build_topbar(c::AbstractConnection, docname::String)
+function build_topbar(c::AbstractConnection, docname::String = "", menus::Pair{String, String} ...)
     top_buttons = Vector{AbstractComponent}()
     top_butt = a(text = "home", href = "/", class = "topbutton", align = "center")
     push!(top_buttons, top_butt)
-    if docname != docloader.homename
+    if docname == ""
+        for menu in menus
+            push!(top_buttons, a(text = menu[1], href = menu[2], class = "topbutton", align = "center"))
+        end
+    elseif docname != docloader.homename
         docn_splits = split(docname, "/")
         top_butt = a(text = docn_splits[1], href = "/" * docn_splits[1], class = "topbutton", align = "center")
         push!(top_buttons, top_butt)
@@ -294,21 +298,22 @@ function build_topbar(c::AbstractConnection, docname::String)
         end
     end
     searchbox = textdiv("sqbox", text = "search")
-    common = ("padding" => 2percent, 
+    common = ("padding" => 1.5percent,
     "border-radius" => 2px, "display" => "inline-block", "font-weight" => "bold")
-    style!(searchbox, "min-width" => 5percent, "width" => 5percent, "color" => "#1e1e1e", "font-weight" => "bold", "background-color" => "white",
-    common ...)
+    style!(searchbox, "min-width" => 40percent, "width" => 40percent, "color" => "#1e1e1e", "font-weight" => "bold", "background-color" => "white", 
+    "border-radius-top-right" => 0px, "border-radius-bottom-right" => 0px, common ...)
     searchbutton = div("sqbutt", text = "search")
     style!(searchbutton, "background-color" => "#333333", "font-weight" => "bold", "color" => "white", common ...)
     on(searchbox, "focus") do cl::ClientModifier
         set_text!(cl, searchbox, "")
     end
-    ToolipsSession.bind(c, searchbutton, "Enter") do cm
+    ToolipsSession.bind(c, searchbox, "Enter") do cm
         prop = cm["sqbox"]["text"]
         redirect!(cm, "/search?q=$prop")
     end
     search_container = div("searchcontainer", align = "right", children = [searchbox, searchbutton])
-    style!(search_container, "margin-left" => 35percent, "display" => "inline-flex", "width" => 5percent)
+    style!(search_container, "margin-left" => 50percent, "display" => "inline-flex", "width" => 70percent, "min-width" => 70percent, 
+    "padding" => 1percent)
     push!(top_buttons, search_container)
     topbar = div("topbar", children = top_buttons, align = "left")
     style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 19.91percent, "background-color" => "#1e1e1e", 
@@ -330,6 +335,8 @@ function get_docpage(c::AbstractConnection, name::String)
     end
     c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])].pages[string(ecopage[2])]::Component{<:Any}
 end
+
+function build_leftmenu(c::AbstractConnection, color::String, menus::Pair{String, String} ...)
 
 function build_leftmenu(c::AbstractConnection, name::String)
     ecopage = split(name, "/")
@@ -463,7 +470,20 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
         route!(c, c[:doc].routes[requested_page])
         return
     end
+    if contains(requested_page, "/search")
+        actual_search = requested_page[1:7] == "/search"
+        args = get_args(c)
+        if actual_search
+            if haskey(args, :q)
+
+            else
+
+            end
+            return
+        end
+    end
     pages = c[:doc].pages
+    write!(c, "<meta charset=\"UTF-8\">")
     write!(c, pages["styles"])
     mainbody::Component{:body} = body("main", align = "center", children = Vector{AbstractComponent}([cursor("doccursor")]))
     style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
