@@ -32,12 +32,35 @@ mutable struct ClientDocLoader <: Toolips.AbstractExtension
     components::Vector{AbstractComponent}
     homename::String
     routes::Vector{Toolips.Route{Connection}}
+    meta::Dict{String, String}
     ClientDocLoader(docsystems::Vector{DocSystem} = Vector{DocSystem}()) = begin
         pages::Vector{AbstractComponent} = Vector{AbstractComponent}()
         new("", docsystems, pages, 
         Vector{AbstractComponent}(), Vector{AbstractComponent}(), "", 
-        Vector{Toolips.Route{Connection}}())::ClientDocLoader
+        Vector{Toolips.Route{Connection}}(), 
+        Dict{String, String}())::ClientDocLoader
     end
+end
+
+function generate_meta!(docn::ClientDocLoader)
+    possibles = keys(docn.meta)
+    Documator.META = Vector{AbstractComponent}()
+    if "desc" in possibles
+        push!(Documator.META, Components.meta(name = "description", content = docn.meta["desc"]))
+    end
+    if "icon" in possibles
+        push!(Documator.META, Components.link(rel = "icon", type = "image/x-icon", href = docn.meta["icon"]))
+    end
+    if "title" in possibles
+        push!(Documator.META, Components.title(text = docn.meta["title"]))
+    end
+    if "tags" in possibles
+        push!(Documator.META, Components.meta(name = "keywords", content = docn.meta["tags"]))
+    end
+    if "author" in possibles
+        push!(Documator.META, Components.meta(name = "author", content = docn.meta["author"]))
+    end
+    docn.meta = Dict{String, String}()
 end
 
 docloader = ClientDocLoader()

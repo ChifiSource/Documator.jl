@@ -12,6 +12,8 @@ FOROFOUR = begin
     h2(text = "page not found (default documator 404)")
 end
 
+META = nothing
+
 # extensions
 logger = Toolips.Logger()
 session = Session(Vector{String}(), invert_active = true)
@@ -20,6 +22,7 @@ include("DocMods.jl")
 
 function on_start(ext::ClientDocLoader, data::Dict{Symbol, Any}, routes::Vector{<:AbstractRoute})
     ss = make_stylesheet()
+    generate_meta!(ext)
     DOCROUTER.file_routes = mount("/" => "$(ext.dir)/public")
     for r in DOCROUTER.file_routes
         push!(session.active_routes, r.path)
@@ -39,21 +42,15 @@ function get_doc_string(f)
         return("")
     end
     d = typeof(f)
-    @warn d
 	if d <: AbstractString
-        @info "option 1"
         return(string(f))
     elseif d == Components.Markdown.MD
-        @info "option 2"
         return(string(f))
 	else
         try
             w = get_doc_string(f[1])
-            @info "option 3"
             return(w)
         catch
-            @warn d
-            @info "option 4"
 		    return string(f.text)
         end
 	end
@@ -553,6 +550,9 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
         loaded_page = docloader.homename
     end
     write!(c, "<meta charset=\"UTF-8\">")
+    if length(Documator.META) > 0
+        write!(c, Documator.META)
+    end
     bar = build_topbar(c, loaded_page)
     left_menu = build_leftmenu(c, loaded_page)
     push!(mainbody, bar, left_menu, build_main(c, loaded_page))
