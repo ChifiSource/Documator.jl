@@ -21,7 +21,7 @@ session = Session(Vector{String}(), invert_active = true)
 include("DocMods.jl")
 
 function on_start(ext::ClientDocLoader, data::Dict{Symbol, Any}, routes::Vector{<:AbstractRoute})
-    ss = make_stylesheet()
+    ss = make_stylesheet(true)
     generate_meta!(ext)
     DOCROUTER.file_routes = mount("/" => "$(ext.dir)/public")
     for r in DOCROUTER.file_routes
@@ -34,6 +34,29 @@ end
 
 function compress_pages!(ext::ClientDocLoader)
     @info "COMPRESSING ..."
+    for page in Documator.docloader.pages
+        compress!(page)
+    end
+    for page in Documator.docloader.menus
+        compress!(page)
+    end
+    for page in Documator.docloader.components
+        compress!(page)
+    end
+    for system in docloader.docsystems
+        for mod in system.modules
+            for page in mod.pages
+                compress!(page)
+            end
+            for page in mod.docstrings
+                compress!(page)
+            end
+            for page in mod.examples
+                compress!(page)
+            end
+        end
+        
+    end
     GC.gc(true)
 end
 
@@ -237,9 +260,9 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
 end
 
 function make_stylesheet(dark::Bool = false)
-    colors_1 = ("white")
+    colors_2 = []
     if dark
-
+        colors_2 = ["background-color" => "#383332"]
     end
     bttons = Style("button", "font-family" => "storycan")
     h1_sty = Style("h1", "color" => "#333333")
@@ -261,7 +284,7 @@ function make_stylesheet(dark::Bool = false)
     "cursor" => "pointer", tab_x ...)
     tab_x_inactive = Style("a.tabxinactive", "color" => "#333333", "background-color" => "lightgray", "font-family" => "storycan",
      "padding" => 9px, tab_x ...)
-    left_menu_elements = Style("div.menuitem", "padding" => 8px, "cursor" => "pointer", "overflow" => "visible")
+    left_menu_elements = Style("div.menuitem", "padding" => 8px, "cursor" => "pointer", "overflow" => "visible", colors_2 ...)
     main_menus = Style("a.mainmenulabel", "font-size" => 18pt, "font-weight" => "bold", 
     "display" => "inline-block", "opacity" => 100percent, "transition" => 400ms)
     menu_holder = Style("div.mmenuholder", "z-index" => 2, "transition" => 800ms,"overflow" => "hidden")
