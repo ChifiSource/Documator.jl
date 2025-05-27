@@ -6,8 +6,10 @@ mutable struct DocModule <: DocServable
     pages::Vector{Component{<:Any}}
     projectpath::String
     docstrings::Vector{Component{<:Any}}
-    DocModule(name::String, color::String, pag::Vector, path::String) = new(name, 
-    color, pag, path, Vector{Component{<:Any}}())
+    examples::Vector{Component{<:Any}}
+    DocModule(name::String, color::String, pag::Vector{<:AbstractComponent}, path::String, 
+    examples::Vector{Component{:div}}) = new(name, 
+    color, pag, path, Vector{Component{<:Any}}(), examples)
 end
 
 mutable struct DocSystem <: DocServable
@@ -153,17 +155,26 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
     pages = Vector{Component{<:Any}}()
     path::String = path * "/modules/" * dct_data["path"]
     @info "|- - - $path"
-    pages = [begin
-        pagen = split(n, "_")[2]
-        # (cut off .md)
-        pagen = pagen[1:length(pagen) - 3]
-        rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
-        newmd = tmd(replace(pagen, " " => "-"), rawsrc)
-        newmd[:text] = replace(Components.rep_in(newmd[:text]), "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "--" => "&mdash;", "&#61;" => "=", 
-        "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
-        newmd
-    end for n in readdir(path)]
-    DocModule(name, dct_data["color"], pages, path)
+    pages = Vector{Component{<:Any}}()
+    examples = Vector{Component{:div}}()
+    for n in readdir(path)
+        if ~(contains(n, "_"))
+            pagen = pagen[1:length(pagen) - 3]
+            rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
+            newmd = tmd(replace(pagen, " " => "-"), rawsrc)
+            push!(examples, newmd)
+        else
+            pagen = split(n, "_")[2]
+            # (cut off .md)
+            pagen = pagen[1:length(pagen) - 3]
+            rawsrc = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
+            newmd = tmd(replace(pagen, " " => "-"), rawsrc)
+            newmd[:text] = replace(Components.rep_in(newmd[:text]), "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "--" => "&mdash;", "&#61;" => "=", 
+            "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
+            push!(pages, newmd)
+        end
+    end
+    DocModule(name, dct_data["color"], pages, path, examples)
 end
 
 function generate(groups::Pair{String, Vector{Module}} ...)

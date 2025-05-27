@@ -170,6 +170,11 @@ function load_docs!(mod::Module, docloader::ClientDocLoader)
                 "html" => html_interpolator, "docstrings" => docstring_interpolator)
                 ToolipsServables.interpolate!(page, hoverdocs ..., docloader.components ...)
             end for page in docmod.pages]
+            [begin
+                ToolipsServables.interpolate!(page, "julia" => julia_interpolator, "img" => img_interpolator, 
+                "html" => html_interpolator, "docstrings" => docstring_interpolator)
+                ToolipsServables.interpolate!(page, hoverdocs ..., docloader.components ...)
+            end for page in docmod.examples]
             push!(docloader.menus, div(docmod.name, children = build_leftmenu_elements(docmod)))
         end
     end
@@ -231,7 +236,11 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
     end for child in menu[:children]]
 end
 
-function make_stylesheet()
+function make_stylesheet(dark::Bool = false)
+    colors_1 = ("white")
+    if dark
+
+    end
     bttons = Style("button", "font-family" => "storycan")
     h1_sty = Style("h1", "color" => "#333333")
     h2_sty = Style("h2", "color" => "#29232e")
@@ -503,13 +512,7 @@ function build_search_results(c::AbstractConnection, q::String)
     style!(main_window, "background-color" => "white", "padding" => 2percent, "border-left" => "2px soid #211f1f", 
     "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "wrap", "width" => 76percent,
     "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "height" => 89.1percent)
-
-    mainbody::Component{:body} = body("main", align = "center", children = Vector{AbstractComponent}([cursor("doccursor")]))
-    style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
-    bar = build_topbar(c, "", "search" => "/search")
-    left_menu = build_leftmenu(c, "#1e1e1e", "hi" => "sample")
-    push!(mainbody, bar, left_menu, main_window)
-    write!(c, mainbody)
+    main_window::Component{:div}
 end
 
 function build_search_error(c::AbstractConnection)
@@ -528,34 +531,43 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
         return
     end
     pages = c[:doc].pages
+    if length(Documator.META) > 0
+        write!(c, Documator.META)
+    end
+    write!(c, pages["styles"])
+    bar = nothing
+    left_menu = nothing
+    main = nothing
     if contains(requested_page, "/search")
         actual_search = requested_page[1:7] == "/search"
         args = get_args(c)
         if actual_search
             write!(c, pages["styles"])
             if haskey(args, :q)
-                build_search_results(c, args[:q])
+                main = build_search_results(c, args[:q])
             else
-                build_search_error(c)
+                main = build_search_error(c)
             end
-            return
         end
-    end
-    write!(c, pages["styles"])
-    mainbody::Component{:body} = body("main", align = "center", children = Vector{AbstractComponent}([cursor("doccursor")]))
-    style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
-    if requested_page != "/"
-        loaded_page = requested_page[2:end]
+    elseif contains(requested_page, "/examples")
+        actual_examples = requested_page[1:9] == "examples"
+        Q = split()
     else
-        loaded_page = docloader.homename
+        loaded_page = if requested_page != "/"
+            requested_page[2:end]
+        else
+            loaded_page = docloader.homename
+        end
+        bar = build_topbar(c, loaded_page)
+        if isnothing(bar)
+            write!(c, )
+        end
+        left_menu = build_leftmenu(c, loaded_page)
+        main = build_main(c, loaded_page)
     end
-    write!(c, "<meta charset=\"UTF-8\">")
-    if length(Documator.META) > 0
-        write!(c, Documator.META)
-    end
-    bar = build_topbar(c, loaded_page)
-    left_menu = build_leftmenu(c, loaded_page)
-    push!(mainbody, bar, left_menu, build_main(c, loaded_page))
+    mainbody::Component{:body} = body("main", align = "center", children = Vector{AbstractComponent}([cursor("doccursor"), 
+        bar, left_menu, main]))
+    style!(mainbody, "background-color" => "#333333", "overflow" => "hidden", "transition" => 1s)
     write!(c, mainbody)
 end
 
