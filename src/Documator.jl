@@ -27,20 +27,17 @@ function on_start(ext::ClientDocLoader, data::Dict{Symbol, Any}, routes::Vector{
     for r in DOCROUTER.file_routes
         push!(session.active_routes, r.path)
     end
-    push!(ext.pages, ss, generate_menu(ext.docsystems))
+    push!(ext.pages, ss, bind_menu!(generate_menu(ext.docsystems)))
     push!(data, :doc => ext)
     compress_pages!(ext)
 end
 
 function compress_pages!(ext::ClientDocLoader)
     @info "COMPRESSING ..."
-    for page in Documator.docloader.pages
+    for page in Documator.docloader.components
         compress!(page)
     end
     for page in Documator.docloader.menus
-        compress!(page)
-    end
-    for page in Documator.docloader.components
         compress!(page)
     end
     for system in docloader.docsystems
@@ -223,9 +220,9 @@ function generate_menu(mods::Vector{DocSystem})
     menuholder::Component{:div}
 end
 
-function bind_menu!(c::AbstractConnection, menu::Component{:div})
-    [begin # menu children
-        selected_system = c[:doc].docsystems[child.name]
+function bind_menu!(menu::Component{:div})
+    for child in menu[:children]
+        selected_system = Documator.docloader.docsystems[child.name]
         econame::String = child.name
         submenu = [begin # submenu
         docn = docmod.name
@@ -256,7 +253,8 @@ function bind_menu!(c::AbstractConnection, menu::Component{:div})
         end
         on("dec$econame", child, "click")
 
-    end for child in menu[:children]]
+    end
+    menu::Component{:div}
 end
 
 function make_stylesheet(dark::Bool = false)
@@ -382,8 +380,13 @@ function get_docpage(c::AbstractConnection, name::String)
     c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])].pages[string(ecopage[2])]::Component{<:Any}
 end
 
-function build_leftmenu(c::AbstractConnection, color::String, menus::Pair{String, String} ...)
+function build_leftmenu(c::AbstractConnection, color::String, menus::Component{<:Any} ...)
     div("sample", text = "sub-menu has yet to be implemented")
+    left_menu::Component{:div} = div("left_menu")
+    push!(left_menu, main_menu, item_inner)
+    style!(left_menu, "width" => 19.91percent, "background-color" => color, "border-right" => "2px solid #1e1e1e", "position" => "absolute", "left" => 0percent, "top" => 0percent,
+    "height" => 100percent)
+    left_menu::Component{:div}
 end
 
 function build_leftmenu(c::AbstractConnection, name::String)
@@ -393,8 +396,7 @@ function build_leftmenu(c::AbstractConnection, name::String)
     end
     mod = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[length(ecopage)])]
     items = get_left_menu_elements(c, mod)
-    main_menu = copy(c[:doc].pages["mainmenu"])
-    bind_menu!(c, main_menu)
+    main_menu = c[:doc].pages["mainmenu"]
     reference_button = div("refb", text = "reference", class = "menuitem", onclick="location.href='/$(ecopage[1])/$(mod.name)/reference';")
     style!(reference_button, "background-color" => "#77DD77", "border-left" => "4px solid $(mod.color)", 
     "color" => "#333333", "font-weight" => "bold")
