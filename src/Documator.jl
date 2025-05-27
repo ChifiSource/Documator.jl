@@ -151,7 +151,7 @@ function build_docstrings(mod::Module, docm::DocModule)
         end
         on(docname, inline_comp, "click")
         docstr_tmd
-    end for sname in names(ativ_mod, all = true)]
+    end for sname in names(ativ_mod, all = true, imported = true)]
     return(docstrings, hover_docs)
 end
 
