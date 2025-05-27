@@ -369,21 +369,19 @@ function get_docpage(c::AbstractConnection, name::String)
         return(div("$name", children = system.modules[string(ecopage[2])].pages))
     elseif n == 3
         if ecopage[3] == "reference"
-            cont = div("$name", children = c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[2])].docstrings)
+            cont = div("$name", children = system.modules[string(ecopage[2])].docstrings)
             style!(cont, "overflow-x" => "show", "overflow-y" => "scroll", "display" => "grid", "padding" => 5percent)
             return(cont)
         else
-            # TODO generate specific docpage
-            return(div("$name", children = FOROFOUR))
+            return(div("$name", children = [system.modules[string(ecopage[3])].pages[string(ecopage[3])]]))
         end
+    else
+        return(div("$name", children = FOROFOUR))
     end
-    c[:doc].docsystems[string(ecopage[1])].modules[string(ecopage[3])].pages[string(ecopage[2])]::Component{<:Any}
 end
 
 function build_leftmenu(c::AbstractConnection, color::String, menus::Component{<:Any} ...)
-    div("sample", text = "sub-menu has yet to be implemented")
-    left_menu::Component{:div} = div("left_menu")
-    push!(left_menu, main_menu, item_inner)
+    left_menu::Component{:div} = div("left_menu", children = menus)
     style!(left_menu, "width" => 19.91percent, "background-color" => color, "border-right" => "2px solid #1e1e1e", "position" => "absolute", "left" => 0percent, "top" => 0percent,
     "height" => 100percent)
     left_menu::Component{:div}
@@ -404,6 +402,12 @@ function build_leftmenu(c::AbstractConnection, name::String)
     style!(head, "font-size" => 16pt, "color" => "white", "padding" => 4px, "background-color" => mod.color, 
     "font-weight" => "bold", "border-top" => "2px solid #333333")
     items = [head, reference_button, items]
+    if length(mod.examples) > 0
+        exam_button = div("exb", text = "examples", class = "menuitem", onclick="location.href='/examples/$(ecopage[1])/$(mod.name)';")
+        style!(exam_button, "background-color" => "#b06b6b", "border-left" => "4px solid $(mod.color)", 
+        "color" => "#333333", "font-weight" => "bold")
+        insert!(items, 3, exam_button)
+    end
     item_inner = div("leftmenu_items", children = items)
     style!(item_inner, "overflow" => "visible")
     left_menu::Component{:div} = div("left_menu")
@@ -506,7 +510,6 @@ mutable struct DocRoute <: AbstractDocRoute
     DocRoute() = new(Vector{Toolips.Route}())
 end
 
-
 show(o::IO, r::DocRoute) = print(o, "Docroute ()")
 
 function build_search_results(c::AbstractConnection, q::String)
@@ -537,11 +540,27 @@ function build_search_results(c::AbstractConnection, q::String)
     style!(main_window, "background-color" => "white", "padding" => 2percent, "border-left" => "2px soid #211f1f", 
     "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "wrap", "width" => 76percent,
     "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "height" => 89.1percent)
-    main_window::Component{:div}
+    bar = build_topbar(c, "", "search" => "/search")
+    left_menu = build_leftmenu(c, "#1e1e1e", 
+        [div("lm", align = "left", text = "docstrings", class = "menuitem")] ...)
+    return(main_window, left_menu, bar)
 end
 
 function build_search_error(c::AbstractConnection)
+    main_window = div("main_window", align = "left", children = [h2("errormsg", text = "you've come to search, but provided no query")])
+    style!(main_window, "background-color" => "white", "padding" => 2percent, "border-left" => "2px soid #211f1f", 
+    "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "wrap", "width" => 76percent,
+    "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "height" => 89.1percent)
+    return(main_window)
+end
 
+function build_examples(c::AbstractConnection, name::String)
+    ecopage::Vector{SubString} = split(name, "/")
+    system = c[:doc].docsystems[string(ecopage[1])].modules
+    examples = [begin
+        h2()
+    end for mod in system.examples]
+    div("examples", children = examples)
 end
 
 route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
@@ -565,18 +584,19 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
     main = nothing
     if contains(requested_page, "/search")
         actual_search = requested_page[1:7] == "/search"
-        args = get_args(c)
         if actual_search
-            write!(c, pages["styles"])
+            args = get_args(c)
             if haskey(args, :q)
-                main = build_search_results(c, args[:q])
+                main, left_menu, bar = build_search_results(c, args[:q])
             else
-                main = build_search_error(c)
+                main, left_menu, bar = build_search_error(c)
             end
         end
     elseif contains(requested_page, "/examples")
-        actual_examples = requested_page[1:9] == "examples"
-        Q = split()
+        actual_examples = requested_page[1:9] == "/examples"
+        if actual_examples
+
+        end
     else
         loaded_page = if requested_page != "/"
             requested_page[2:end]
@@ -584,9 +604,6 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
             loaded_page = docloader.homename
         end
         bar = build_topbar(c, loaded_page)
-        if isnothing(bar)
-            write!(c, )
-        end
         left_menu = build_leftmenu(c, loaded_page)
         main = build_main(c, loaded_page)
     end

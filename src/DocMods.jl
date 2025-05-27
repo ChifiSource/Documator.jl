@@ -159,7 +159,7 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
     examples = Vector{Component{:div}}()
     for n in readdir(path)
         if ~(contains(n, "_"))
-            pagen = pagen[1:length(pagen) - 3]
+            pagen = n[1:length(n) - 3]
             rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
             newmd = tmd(replace(pagen, " " => "-"), rawsrc)
             push!(examples, newmd)
