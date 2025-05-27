@@ -162,6 +162,8 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
             pagen = n[1:length(n) - 3]
             rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
             newmd = tmd(replace(pagen, " " => "-"), rawsrc)
+            ToolipsServables.interpolate!(newmd, "julia" => julia_interpolator, "img" => img_interpolator, 
+                "html" => html_interpolator, "docstrings" => docstring_interpolator, "example" => julia_interpolator)
             push!(examples, newmd)
         else
             pagen = split(n, "_")[2]

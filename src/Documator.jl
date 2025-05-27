@@ -134,7 +134,7 @@ function build_docstrings(mod::Module, docm::DocModule)
         inline_comp = a(docname, text = docname, class = "inline-doc")
         push!(hover_docs, inline_comp)
         on(session, docname) do cm::ComponentModifier
-            close_button = button("closedoc", text = "v")
+            close_button = div("closedoc", text = "X")
             style!(close_button, "background-color" => "#8a0a25", "color" => "white", 
             "font-weight" => "bold", "padding" => .7percent, "border" => "none", 
             "border-radius" => 6px, "font-size" => 16pt, "cursor" => "pointer")
@@ -329,7 +329,7 @@ function build_topbar(c::AbstractConnection, docname::String = "", menus::Pair{S
         end
     end
     searchbox = textdiv("sqbox", text = "search")
-    common = ("padding" => .1percent,
+    common = ("padding" => 1percent,
     "border-radius" => 2px, "display" => "inline-block", "font-weight" => "bold")
     style!(searchbox, "min-width" => 40percent, "width" => 40percent, "color" => "#1e1e1e", "font-weight" => "bold", "background-color" => "white", 
     "border-radius-top-right" => 0px, "border-radius-bottom-right" => 0px, common ...)
@@ -343,7 +343,7 @@ function build_topbar(c::AbstractConnection, docname::String = "", menus::Pair{S
         redirect!(cm, "/search?q=$prop")
     end
     search_container = div("searchcontainer", align = "left", children = [searchbox, searchbutton])
-    style!(search_container, "float" => "right", "display" => "inline-flex", "width" => 70percent, "min-width" => 70percent, 
+    style!(search_container, "display" => "inline-flex", "width" => 70percent, "min-width" => 70percent, 
     "padding" => .25percent)
     push!(top_buttons, search_container)
     topbar = div("topbar", children = top_buttons, align = "left")
@@ -355,14 +355,14 @@ end
 function get_docpage(c::AbstractConnection, name::String)
     ecopage::Vector{SubString} = split(name, "/")
     n = length(ecopage)
-    if ~(ecopage[1] in [sys.name for sys in c[:doc].docsystems])
+    if ~(ecopage[1] in (sys.name for sys in c[:doc].docsystems))
         return(div("$name", children = FOROFOUR))
     end
     if n == 1
         return(div("$name", children = c[:doc].pages[name]))
     end
     system = c[:doc].docsystems[string(ecopage[1])]
-    if ~(ecopage[2] in [docmn.name for docmn in system.modules])
+    if ~(ecopage[2] in (docmn.name for docmn in system.modules))
         return(div("$name", children = FOROFOUR))
     end
     if n == 2
@@ -373,16 +373,22 @@ function get_docpage(c::AbstractConnection, name::String)
             style!(cont, "overflow-x" => "show", "overflow-y" => "scroll", "display" => "grid", "padding" => 5percent)
             return(cont)
         else
-            return(div("$name", children = [system.modules[string(ecopage[3])].pages[string(ecopage[3])]]))
+            if ~(ecopage[3] in (docmn.name for docmn in system.modules[string(ecopage[2])].pages))
+                return(div("$name", children = FOROFOUR))
+            end
+            return(div("$name", children = [system.modules[string(ecopage[2])].pages[string(ecopage[3])]]))
         end
     else
         return(div("$name", children = FOROFOUR))
     end
 end
 
-function build_leftmenu(c::AbstractConnection, color::String, menus::Component{<:Any} ...)
-    left_menu::Component{:div} = div("left_menu", children = menus)
-    style!(left_menu, "width" => 19.91percent, "background-color" => color, "border-right" => "2px solid #1e1e1e", "position" => "absolute", "left" => 0percent, "top" => 0percent,
+function build_leftmenu(c::AbstractConnection, menus::Vector{<:Components.AbstractComponent})
+    main_menu = c[:doc].pages["mainmenu"]
+    item_inner = div("leftmenu_items", children = menus)
+    style!(item_inner, "overflow" => "visible")
+    left_menu::Component{:div} = div("left_menu", children = [main_menu, item_inner])
+    style!(left_menu, "width" => 19.91percent, "border-right" => "2px solid #1e1e1e", "position" => "absolute", "left" => 0percent, "top" => 0percent,
     "height" => 100percent)
     left_menu::Component{:div}
 end
@@ -541,8 +547,8 @@ function build_search_results(c::AbstractConnection, q::String)
     "display" => "block", "overflow-y" => "scroll", "text-wrap" => "wrap", "overflow-x" => "wrap", "width" => 76percent,
     "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "height" => 89.1percent)
     bar = build_topbar(c, "", "search" => "/search")
-    left_menu = build_leftmenu(c, "#1e1e1e", 
-        [div("lm", align = "left", text = "docstrings", class = "menuitem")] ...)
+    left_menu = build_leftmenu(c,
+        [div("lm", align = "left", text = "docstrings", class = "menuitem")])
     return(main_window, left_menu, bar)
 end
 
@@ -556,11 +562,30 @@ end
 
 function build_examples(c::AbstractConnection, name::String)
     ecopage::Vector{SubString} = split(name, "/")
-    system = c[:doc].docsystems[string(ecopage[1])].modules
+    system = c[:doc].docsystems[string(ecopage[1])].modules[ecopage[2]]
     examples = [begin
-        h2()
-    end for mod in system.examples]
-    div("examples", children = examples)
+        examp = div("yadda", text = page.name, class = "menuitem")
+        on(c, examp, "click") do cm::ComponentModifier
+            if "dia" in cm
+                return
+            end
+            close_button = div("closedoc", text = "X")
+            style!(close_button, "background-color" => "#8a0a25", "color" => "white", 
+            "font-weight" => "bold", "padding" => .7percent, "border" => "none", 
+            "border-radius" => 6px, "font-size" => 16pt, "cursor" => "pointer")
+            on(close_button, "click") do cl::ClientModifier
+                remove!(cl, "dia")
+            end
+            close_container = div("close_container", align = "right", children = [close_button])
+            new_dialog = div("dia", children = [close_container, page])
+            style!(new_dialog, "position" => "absolute", "top" => 3percent, "left" => 20percent,
+            "border-radius" => 4px, "border" => "2px solid #333333", "background-color" => "white", "padding" => 15px, 
+            "height" => 89.1percent, "width" => 76percent, "overflow-y" => "scroll", "overflow-x" => "wrap")
+            append!(cm, "main", new_dialog)
+        end
+        examp
+    end for page in system.examples]
+    return(div("examples", children = examples), h1(), h2())
 end
 
 route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
@@ -595,7 +620,7 @@ route!(c::AbstractConnection, rs::Vector{DocRoute}) = begin
     elseif contains(requested_page, "/examples")
         actual_examples = requested_page[1:9] == "/examples"
         if actual_examples
-
+            main, left_menu, bar = build_examples(c, requested_page[11:end])
         end
     else
         loaded_page = if requested_page != "/"
