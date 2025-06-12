@@ -129,7 +129,18 @@ function docstring_interpolator(raw::String)
     ret::String
 end
 
-html_interpolator(raw::String) = OliveHighlighters.rep_in(raw)::String
+html_highlighter = OliveHighlighters.Highlighter()
+
+style!(html_highlighter, :inner, "color" => "blue")
+style!(html_highlighter, :default, "color" => "orange")
+
+html_interpolator(raw::String) = Toolips.Components.rep_in(raw)::String
+
+rawhtml_interpolator(raw::String) = begin 
+    set_text!(html_highlighter, raw)
+    @info "interpolating"
+    string(Component{:code}(text = replace(string(html_highlighter), ">" => "&gt;", "<" => "&#60;", "<br>" => "\n")))
+end
 
 function img_interpolator(raw::String)
     if contains(raw, "|")
@@ -161,9 +172,12 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
         if ~(contains(n, "_"))
             pagen = n[1:length(n) - 3]
             rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
-            newmd = tmd(replace(pagen, " " => "-"), rawsrc)
+            newmd = tmd(replace(pagen, " " => "-"), rawsrc, align = "left")
+            newmd[:text] = replace(Components.rep_in(newmd[:text]), "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "--" => "&mdash;", "&#61;" => "=", 
+            "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
             ToolipsServables.interpolate!(newmd, "julia" => julia_interpolator, "img" => img_interpolator, 
-                "html" => html_interpolator, "docstrings" => docstring_interpolator, "example" => julia_interpolator)
+                "html" => html_interpolator, "docstrings" => docstring_interpolator, "example" => julia_interpolator, 
+                "rawhtml" => rawhtml_interpolator)
             push!(examples, newmd)
         else
             pagen = split(n, "_")[2]

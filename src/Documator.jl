@@ -130,7 +130,8 @@ function build_docstrings(mod::Module, docm::DocModule)
         docstr_tmd[:text] = replace(docstr_tmd[:text], "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "â€“" => "--", "&#61;" => "=", 
         "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
         ToolipsServables.interpolate!(docstr_tmd, "julia" => julia_interpolator, "img" => img_interpolator, 
-                "html" => html_interpolator, "docstrings" => docstring_interpolator, "example" => julia_interpolator)
+                "html" => html_interpolator, "docstrings" => docstring_interpolator, "example" => julia_interpolator, 
+                "rawhtml" => rawhtml_interpolator)
         inline_comp = a(docname, text = docname, class = "inline-doc")
         push!(hover_docs, inline_comp)
         on(session, docname) do cm::ComponentModifier
@@ -187,12 +188,12 @@ function load_docs!(mod::Module, docloader::ClientDocLoader)
             push!(docloader.pages, docstrings ...)
             [begin
                 ToolipsServables.interpolate!(page, "julia" => julia_interpolator, "img" => img_interpolator, 
-                "html" => html_interpolator, "docstrings" => docstring_interpolator)
+                "html" => html_interpolator, "docstrings" => docstring_interpolator, "rawhtml" => rawhtml_interpolator)
                 ToolipsServables.interpolate!(page, hoverdocs ..., docloader.components ...)
             end for page in docmod.pages]
             [begin
                 ToolipsServables.interpolate!(page, "julia" => julia_interpolator, "img" => img_interpolator, 
-                "html" => html_interpolator, "docstrings" => docstring_interpolator)
+                "html" => html_interpolator, "docstrings" => docstring_interpolator, "rawhtml" => rawhtml_interpolator)
                 ToolipsServables.interpolate!(page, hoverdocs ..., docloader.components ...)
             end for page in docmod.examples]
             push!(docloader.menus, div(docmod.name, children = build_leftmenu_elements(docmod)))
