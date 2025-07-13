@@ -330,19 +330,21 @@ function build_topbar(c::AbstractConnection, docname::String = "", menus::Pair{S
         end
     end
     searchbox = textdiv("sqbox", text = "search")
-    common = ("padding" => 1percent,
+    common = ("padding" => .5percent,
     "border-radius" => 2px, "display" => "inline-block", "font-weight" => "bold")
     style!(searchbox, "min-width" => 40percent, "width" => 40percent, "color" => "#1e1e1e", "font-weight" => "bold", "background-color" => "white", 
     "border-radius-top-right" => 0px, "border-radius-bottom-right" => 0px, common ...)
     searchbutton = div("sqbutt", text = "search")
-    style!(searchbutton, "background-color" => "#333333", "font-weight" => "bold", "color" => "white", common ...)
+    style!(searchbutton, "background-color" => "#333333", "font-weight" => "bold", "color" => "white", "cursor" => "pointer", common ...)
     on(searchbox, "focus") do cl::ClientModifier
         set_text!(cl, searchbox, "")
     end
-    ToolipsSession.bind(c, searchbox, "Enter") do cm
+    f = cm -> begin
         prop = cm["sqbox"]["text"]
         redirect!(cm, "/search?q=$prop")
     end
+    ToolipsSession.bind(f, c, searchbox, "Enter")
+    on(f, c, searchbutton, "click")
     search_container = div("searchcontainer", align = "left", children = [searchbox, searchbutton])
     style!(search_container, "display" => "inline-flex", "width" => 70percent, "min-width" => 70percent, 
     "padding" => .25percent)

@@ -173,8 +173,6 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
             pagen = n[1:length(n) - 3]
             rawsrc::String = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
             newmd = tmd(replace(pagen, " " => "-"), rawsrc, align = "left")
-            newmd[:text] = replace(Components.rep_in(newmd[:text]), "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "--" => "&mdash;", "&#61;" => "=", 
-            "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
             ToolipsServables.interpolate!(newmd, "julia" => julia_interpolator, "img" => img_interpolator, 
                 "html" => html_interpolator, "docstrings" => docstring_interpolator, "example" => julia_interpolator, 
                 "rawhtml" => rawhtml_interpolator)
@@ -185,8 +183,13 @@ function docmod_from_data(name::String, dct_data::Dict{String, <:Any}, mod::Modu
             pagen = pagen[1:length(pagen) - 3]
             rawsrc = replace(read(path * "/" * n, String), "\"" => "\\|", "<" => "|\\", ">" => "||\\")
             newmd = tmd(replace(pagen, " " => "-"), rawsrc)
+            if pagen == "get started"
+                @warn newmd[:text]
+            else
+                @warn pagen
+            end
             newmd[:text] = replace(Components.rep_in(newmd[:text]), "\\|" => "\"", "|\\" => "<", "||\\" => ">", "&#33;" => "!", "--" => "&mdash;", "&#61;" => "=", 
-            "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]")
+            "&#39;" => "'", "&#91;" => "[", "&#123;" => "{", "&#93;" => "]", "—" => "&mdash;", "…" => "...", "–" => "&mdash;")
             push!(pages, newmd)
         end
     end
