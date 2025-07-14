@@ -350,7 +350,7 @@ function build_topbar(c::AbstractConnection, docname::String = "", menus::Pair{S
     "padding" => .25percent)
     push!(top_buttons, search_container)
     topbar = div("topbar", children = top_buttons, align = "left")
-    style!(topbar, "width" => 80percent, "height" => 3percent, "left" => 19.91percent, "background-color" => "#1e1e1e", 
+    style!(topbar, "width" => 80percent, "height" => 3.5percent, "left" => 19.91percent, "background-color" => "#1e1e1e", 
     "position" => "absolute", "top" => 0percent, "display" => "inline-flex")
     topbar
 end
