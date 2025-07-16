@@ -23,6 +23,13 @@ include("DocMods.jl")
 function on_start(ext::ClientDocLoader, data::Dict{Symbol, Any}, routes::Vector{<:AbstractRoute})
     ss = make_stylesheet(true)
     generate_meta!(ext)
+    positions = findall(x -> typeof(x) <: Components.StyleComponent, ext.components)
+    stys = [ext.components[e] for e in positions]
+    push!(ss, stys ...)
+    for e in 1:length(stys)
+        @info "loaded style component: $(stys[e].name)"
+        deleteat!(ext.components, positions[e])
+    end
     DOCROUTER.file_routes = mount("/" => "$(ext.dir)/public")
     for r in DOCROUTER.file_routes
         push!(session.active_routes, r.path)
@@ -196,7 +203,7 @@ function load_docs!(mod::Module, docloader::ClientDocLoader)
                 "html" => html_interpolator, "docstrings" => docstring_interpolator, "rawhtml" => rawhtml_interpolator)
                 ToolipsServables.interpolate!(page, hoverdocs ..., docloader.components ...)
             end for page in docmod.examples]
-            push!(docloader.menus, div(docmod.name, children = build_leftmenu_elements(docmod)))
+            push!(docloader.menus, div(docmod.name, children = build_leftmenu_elements(docmod, system.name)))
         end
     end
 end
@@ -263,6 +270,9 @@ function make_stylesheet(dark::Bool = false)
     if dark
         colors_2 = ["background-color" => "#383332"]
     end
+    ubuntu_lnk = link("ubuntufnt", "href" => "https://fonts.googleapis.com/css2?family=Ubuntu&display=swap", 
+        "rel" => "stylesheet")
+    bod = Style("body", "font-family" => "'Ubuntu', sans-serif")
     bttons = Style("button", "font-family" => "storycan")
     h1_sty = Style("h1", "color" => "#333333")
     h2_sty = Style("h2", "color" => "#29232e")
@@ -283,7 +293,8 @@ function make_stylesheet(dark::Bool = false)
     "cursor" => "pointer", tab_x ...)
     tab_x_inactive = Style("a.tabxinactive", "color" => "#333333", "background-color" => "lightgray", "font-family" => "storycan",
      "padding" => 9px, tab_x ...)
-    left_menu_elements = Style("div.menuitem", "padding" => 8px, "cursor" => "pointer", "overflow" => "visible", colors_2 ...)
+    left_menu_elements = Style("div.menuitem", "padding" => 8px, "cursor" => "pointer", "transition" => 600ms, "overflow" => "visible", colors_2 ...)
+    left_menu_elements:"hover":["transform" => scale(1.01), "border-bottom" => "2px solid #1e1e1e"]
     main_menus = Style("a.mainmenulabel", "font-size" => 18pt, "font-weight" => "bold", 
     "display" => "inline-block", "opacity" => 100percent, "transition" => 400ms)
     menu_holder = Style("div.mmenuholder", "z-index" => 2, "transition" => 800ms,"overflow" => "hidden")
@@ -297,7 +308,7 @@ function make_stylesheet(dark::Bool = false)
     sheet = Component{:stylesheet}("styles")
     sheet[:children] = Vector{AbstractComponent}([left_menu_elements, main_menus, 
     menu_holder, ico_font, bttons, inldoc, h1_sty, h2_sty, h3_sty, h4_sty, p_sty, cod_sty, 
-    lect_font, scrtrack, scrthumb, topbutton])
+    lect_font, scrtrack, scrthumb, topbutton, bod, ubuntu_lnk])
     compress!(sheet)
     sheet::Component{:stylesheet}
 end
@@ -343,7 +354,7 @@ function build_topbar(c::AbstractConnection, docname::String = "", menus::Pair{S
         prop = cm["sqbox"]["text"]
         redirect!(cm, "/search?q=$prop")
     end
-    ToolipsSession.bind(f, c, searchbox, "Enter")
+    ToolipsSession.bind(f, c, searchbox, "Enter", prevent_default = true)
     on(f, c, searchbutton, "click")
     search_container = div("searchcontainer", align = "left", children = [searchbox, searchbutton])
     style!(search_container, "display" => "inline-flex", "width" => 70percent, "min-width" => 70percent, 
@@ -434,7 +445,7 @@ function get_left_menu_elements(c::AbstractConnection, docmod::DocModule)
     c[:doc].menus[docmod.name]
 end
 
-function build_leftmenu_elements(mod::DocModule)
+function build_leftmenu_elements(mod::DocModule, system::String)
     modcolor::String = mod.color
     [begin 
         pagename = page.name
@@ -496,9 +507,9 @@ function build_leftmenu_elements(mod::DocModule)
             push!(headings, men)
         end
         page[:text] = pagesrc
-        openbutton = button("open-$pagename", text = "d")
+        openbutton = button("open-$pagename", text = "d", onclick = "location.href='/$system/$(mod.name)/$pagename'")
         style!(openbutton, "border" => 0px, "border-radius" => 2px, "font-size" => 17pt, "background" => "transparent", 
-        "color" => "#333333")
+        "color" => "#333333", "cursor" => "pointer")
         labela = a("label-$pagename", text = replace(pagename, "-" => " "))
         style!(labela, "font-size" => 13pt, "font-weight" => "bold", "color" => "#333333")
         pageover = div("pageover", align = "left")
@@ -524,13 +535,14 @@ show(o::IO, r::DocRoute) = print(o, "Docroute ()")
 function build_search_results(c::AbstractConnection, q::String)
     # get search results
     docstrings = Vector{AbstractComponent}()
-    res_pages = Vector{AbstractComponent}()
+    res_pages = Vector{Pair{String, Tuple{String, String, String}}}()
     for system in c[:doc].docsystems
         for mod in system.modules
             found_pages = findall(x -> contains(x[:text], q), mod.pages)
             found_docstrings = findall(x -> contains(x[:text], q), mod.docstrings)
             for page in found_pages
-                push!(res_pages, mod.pages[page])
+                push!(res_pages, system.name => (mod.pages[page].name, mod.color, 
+                    mod.name))
             end
             for page in found_docstrings
                 push!(docstrings, mod.docstrings[page])
@@ -540,10 +552,16 @@ function build_search_results(c::AbstractConnection, q::String)
     # build body
     header = h2(text = "results for '$q'")
     docstr_container = div("dcr", children = docstrings)
+    res_pages = Vector{AbstractComponent}([begin
+        data = pagename[2]
+        respage = div("-", text = data[1], class = "menuitem", onclick = "location.href='$(pagename[1])/$(data[3])/$(data[1])'")
+        style!(respage, "background-color" => data[2])
+        respage
+    end for pagename in res_pages])
     pages_container = div("pgr", children = res_pages)
     common = ("border-radius" => 6px, "border" => "2px solid #1e1e1e", "padding" => 2percent)
     style!(pages_container, common ...)
-    style!(docstr_container, "display" => "grid", common ...)
+    style!(docstr_container, "display" => "grid", "grid-columns" => "3", common ...)
     main_window = div("main_window", align = "left", children = [header, docstr_container, 
     pages_container])
     style!(main_window, "background-color" => "white", "padding" => 2percent, "border-left" => "2px soid #211f1f", 
@@ -551,7 +569,7 @@ function build_search_results(c::AbstractConnection, q::String)
     "position" => "absolute", "top" => 3.15percent, "left" => 20percent, "height" => 89.1percent)
     bar = build_topbar(c, "", "search" => "/search")
     left_menu = build_leftmenu(c,
-        [div("lm", align = "left", text = "docstrings", class = "menuitem")])
+        res_pages)
     return(main_window, left_menu, bar)
 end
 
