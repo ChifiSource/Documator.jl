@@ -105,7 +105,7 @@ function julia_interpolator(raw::String)
     OliveHighlighters.clear!(tm)
     jl_container = div("jlcont", text = ret)
     style!(jl_container, "background-color" => "#1e1e1e", "font-size" => 10pt, "padding" => 25px, 
-    "margin" => 25px, "overflow" => "auto", "max-height" => 25percent, "border-radius" => 3px)
+    "margin" => 25px, "overflow" => "auto", "max-height" => 500px, "border-radius" => 3px)
     string(jl_container)::String
 end
 
