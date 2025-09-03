@@ -494,8 +494,7 @@ function build_leftmenu_elements(mod::DocModule, system::String)
             end
             men = div("page-$pagename-$e", align = "left", class = "menuitem")
             on(session, "$pagename-men-$e") do cm::ComponentModifier
-                scroll_to!(cm, nwcomp, align_top = true)
-                scroll_to!(cm, "main", (0, 0))
+                Components.scroll_to!(cm, nwcomp)
             end
             on("$pagename-men-$e", men, "click")
             pos = nd + (length(nwcompsrc) - txtlen + 1)
